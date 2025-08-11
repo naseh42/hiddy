@@ -1,136 +1,260 @@
-# Description: Configuration file for the bot
+# config.py
+# Description: This file contains the configuration loader and setter for the bot.
+import os
 import json
 import logging
-import os
 from urllib.parse import urlparse
 import requests
 from termcolor import colored
+import datetime
 
-# import Utils.utils
-from version import __version__
+# --- Constants ---
+# Database location
+USERS_DB_LOC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Database', 'hidyBot.db')
 
-# PANEL_URL, API_PATH = None, None
+# Backup location
+BACKUP_LOC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Backup')
 
-# Bypass proxy
-os.environ['no_proxy'] = '*'
+# Receipts location
+RECEIPT_LOC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'UserBot', 'Receiptions')
 
-VERSION = __version__
+# Logs location
+LOG_LOC = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'Logs')
 
-USERS_DB_LOC = os.path.join(os.getcwd(), "Database", "hidyBot.db")
-LOG_DIR = os.path.join(os.getcwd(), "Logs")
-LOG_LOC = os.path.join(LOG_DIR, "hidyBot.log")
-BACKUP_LOC = os.path.join(os.getcwd(), "Backup")
-RECEIPTIONS_LOC = os.path.join(os.getcwd(), "UserBot", "Receiptions")
-BOT_BACKUP_LOC = os.path.join(os.getcwd(), "Backup", "Bot")
-API_PATH = "/api/v1"
+# Support ID (shown in case of errors)
 HIDY_BOT_ID = "@HidyBotGroup"
 
-# if directories not exists, create it
-if not os.path.exists(LOG_DIR):
-    os.mkdir(LOG_DIR)
-if not os.path.exists(BACKUP_LOC):
-    os.mkdir(BACKUP_LOC)
-if not os.path.exists(BOT_BACKUP_LOC):
-    os.mkdir(BOT_BACKUP_LOC)
-if not os.path.exists(RECEIPTIONS_LOC):
-    os.mkdir(RECEIPTIONS_LOC)
+# --- Global Variables ---
+# These will be populated by load_config and set_config_variables
+ADMINS_ID = []
+TELEGRAM_TOKEN = ""
+CLIENT_TOKEN = ""
+PANEL_URL = ""
+LANG = "FA" # Default language
+PANEL_ADMIN_ID = "" # This might not be used with the new API structure
+API_PATH = "" # This might not be used with the new API structure
 
-# set logging  
-logging.basicConfig(handlers=[logging.FileHandler(filename=LOG_LOC,
-                                                  encoding='utf-8', mode='w')],
-                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
+# --- Hiddify API Configuration (New for v2.2.0) ---
+# These will be populated from the database or user input
+HIDDIFY_API_KEY = ""
+HIDDIFY_PROXY_PATH = ""
+HIDDIFY_BASE_URL = "" # e.g., https://yourdomain.com
 
+# --- Version ---
+try:
+    from version import __version__
+except ImportError:
+    __version__ = "Unknown"
 
-def setup_users_db():
-    # global USERS_DB
-    try:
-        if not os.path.exists(USERS_DB_LOC):
-            logging.error(f"Database file not found in {USERS_DB_LOC} directory!")
-            with open(USERS_DB_LOC, "w") as f:
-                pass
-        # USERS_DB = Database.dbManager.UserDBManager(USERS_DB_LOC)
-    except Exception as e:
-        logging.error(f"Error while connecting to database \n Error:{e}")
-        raise Exception(f"Error while connecting to database \nBe in touch with {HIDY_BOT_ID}")
-    # return USERS_DB
+# --- Logging Configuration ---
+if not os.path.exists(LOG_LOC):
+    os.makedirs(LOG_LOC)
 
+# Configure logging to write to a file
+logging.basicConfig(
+    filename=os.path.join(LOG_LOC, 'config.log'),
+    filemode='a',
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
 
-setup_users_db()
-from Database.dbManager import UserDBManager
-
+# --- Database Manager Import ---
+# We need to be careful about circular imports.
+# The USERS_DB will be initialized after this config is loaded.
+USERS_DB = None
 
 def load_config(db):
-    try:
-        config = db.select_str_config()
-        if not config:
-            db.set_default_configs()
-            config = db.select_str_config()
-        configs = {}
-        for conf in config:
-            configs[conf['key']] = conf['value']
+    """
+    Load configuration from the database.
+    This function fetches settings from int_config, str_config, and bool_config tables.
+    """
+    logger.info("Loading configuration from database...")
+    configs = {}
 
+    try:
+        # Load integer configs
+        int_configs = db.select_int_config()
+        if int_configs:
+            for config in int_configs:
+                configs[config['key']] = config['value']
+
+        # Load string configs
+        str_configs = db.select_str_config()
+        if str_configs:
+            for config in str_configs:
+                configs[config['key']] = config['value']
+
+        # Load boolean configs
+        bool_configs = db.select_bool_config()
+        if bool_configs:
+            for config in bool_configs:
+                configs[config['key']] = config['value']
+
+        logger.info("Configuration loaded successfully.")
         return configs
     except Exception as e:
-        logging.error(f"Error while loading config \n Error:{e}")
-        raise Exception(f"Error while loading config \nBe in touch with {HIDY_BOT_ID}")
-
+        logger.error(f"Error loading configuration from database: {e}")
+        return {}
 
 def load_server_url(db):
+    """
+    Load the Hiddify panel URL from the database.
+    With the new API, we might need to load HIDDIFY_BASE_URL, HIDDIFY_PROXY_PATH, and HIDDIFY_API_KEY.
+    For backward compatibility, we'll try to extract URL if stored in old format.
+    """
+    logger.info("Loading server URL from database...")
     try:
-        panel_url = db.select_servers()
-        if not panel_url:
+        # Try to get the new format configs first
+        str_configs = db.select_str_config()
+        base_url = None
+        proxy_path = None
+        api_key = None
+        
+        if str_configs:
+            for config in str_configs:
+                if config['key'] == 'hiddify_base_url':
+                    base_url = config['value']
+                elif config['key'] == 'hiddify_proxy_path':
+                    proxy_path = config['value']
+                elif config['key'] == 'hiddify_api_key':
+                    api_key = config['value']
+                # For backward compatibility, check for old 'url' key
+                elif config['key'] == 'url' and not base_url:
+                    # Try to parse the old URL format
+                    old_url = config['value']
+                    if old_url:
+                        # Remove trailing slash
+                        if old_url.endswith('/'):
+                            old_url = old_url[:-1]
+                        # Remove common suffixes
+                        if old_url.endswith('/admin'):
+                            old_url = old_url[:-6]
+                        elif old_url.endswith('/admin/user'):
+                            old_url = old_url[:-11]
+                        base_url = old_url
+                        proxy_path = "proxy" # Default assumption
+                        # API key would need to be set separately
+
+        if base_url:
+            logger.info("Server URL loaded successfully (new format).")
+            return {
+                'base_url': base_url,
+                'proxy_path': proxy_path or "proxy",
+                'api_key': api_key or ""
+            }
+        else:
+            logger.warning("Server URL not found in new format.")
             return None
-        return panel_url[0]['url']
     except Exception as e:
-        logging.error(f"Error while loading panel_url \n Error:{e}")
-        raise Exception(f"Error while loading panel_url \nBe in touch with {HIDY_BOT_ID}")
+        logger.error(f"Error loading server URL from database: {e}")
+        return None
 
+def set_config_variables(configs, server_info):
+    """
+    Set global configuration variables from loaded configs and server URL.
+    This function maps database config keys to global variables.
+    """
+    global ADMINS_ID, TELEGRAM_TOKEN, CLIENT_TOKEN, PANEL_URL, LANG, \
+           HIDDIFY_API_KEY, HIDDIFY_PROXY_PATH, HIDDIFY_BASE_URL, PANEL_ADMIN_ID, API_PATH
 
-ADMINS_ID, TELEGRAM_TOKEN, CLIENT_TOKEN, PANEL_URL, LANG, PANEL_ADMIN_ID = None, None, None, None, None, None
+    logger.info("Setting global configuration variables...")
+    
+    # Required configurations check
+    required_configs = ['owners', 'telegram_token', 'lang']
+    missing_configs = [key for key in required_configs if key not in configs]
+    
+    if missing_configs:
+        logger.error(f"Missing required configurations: {missing_configs}")
+        raise Exception(f"ConfigError: Missing required configurations: {missing_configs}")
 
-
-def set_config_variables(configs, server_url):
-    if not conf['bot_admin_id'] and not conf['bot_token_admin'] and not conf['bot_lang'] or not server_url:
-        print(colored("Config is not set! , Please run config.py first", "red"))
-        raise Exception(f"Config is not set!\nBe in touch with {HIDY_BOT_ID}")
-
-    global ADMINS_ID, TELEGRAM_TOKEN, PANEL_URL, LANG, PANEL_ADMIN_ID, CLIENT_TOKEN
-    json_admin_ids = configs["bot_admin_id"]
-    ADMINS_ID = json.loads(json_admin_ids)
-    TELEGRAM_TOKEN = configs["bot_token_admin"]
+    # Set basic configurations
     try:
-        CLIENT_TOKEN = configs["bot_token_client"]
-    except KeyError:
-        CLIENT_TOKEN = None
+        ADMINS_ID = [int(id.strip()) for id in configs['owners'].split(',')]
+    except (ValueError, AttributeError):
+        logger.error("Invalid format for 'owners' configuration.")
+        raise Exception("ConfigError: Invalid format for 'owners' configuration.")
+    
+    TELEGRAM_TOKEN = configs.get('telegram_token', '')
+    LANG = configs.get('lang', 'FA')
+    
+    # Client token (for user bot)
+    CLIENT_TOKEN = configs.get('client_token', '')
+    
+    # Set Hiddify API configurations
+    if server_info:
+        HIDDIFY_BASE_URL = server_info.get('base_url', '')
+        HIDDIFY_PROXY_PATH = server_info.get('proxy_path', 'proxy')
+        HIDDIFY_API_KEY = server_info.get('api_key', '')
+        # For backward compatibility
+        PANEL_URL = HIDDIFY_BASE_URL
+        API_PATH = f"/{HIDDIFY_PROXY_PATH}"
+    else:
+        # Fallback to old method if server_info is not available
+        logger.warning("Server info not available, using old method for PANEL_URL.")
+        # This part would need the old logic to extract URL from configs if stored that way
+        # For now, we'll leave it empty and let the validation handle it
+        PANEL_URL = configs.get('url', '') # Old way
+        if PANEL_URL:
+            # Process PANEL_URL similar to before
+            if PANEL_URL.endswith("/"):
+                PANEL_URL = PANEL_URL[:-1]
+            if PANEL_URL.endswith("admin"):
+                PANEL_URL = PANEL_URL.replace("/admin", "")
+            if PANEL_URL.endswith("admin/user"):
+                PANEL_URL = PANEL_URL.replace("/admin/user", "")
+            # Set new variables based on old PANEL_URL if possible
+            HIDDIFY_BASE_URL = PANEL_URL
+            HIDDIFY_PROXY_PATH = "proxy" # Default assumption
+        else:
+            HIDDIFY_BASE_URL = ""
+            HIDDIFY_PROXY_PATH = "proxy"
+        HIDDIFY_API_KEY = configs.get('hiddify_api_key', '') # If stored separately
+    
+    # These might not be used with the new API but kept for compatibility
+    PANEL_ADMIN_ID = configs.get('panel_admin_id', '')
+    
+    logger.info("Global configuration variables set successfully.")
 
-    if CLIENT_TOKEN:
-        setup_users_db()
-    PANEL_URL = server_url
-    LANG = configs["bot_lang"]
-    # PANEL_ADMIN_ID = ADMIN_DB.find_admins(uuid=urlparse(PANEL_URL).path.split('/')[2])
-    PANEL_ADMIN_ID = urlparse(PANEL_URL).path.split('/')[2]
-    if not PANEL_ADMIN_ID:
-        print(colored("Admin panel UUID is not valid!", "red"))
-        raise Exception(f"Admin panel UUID is not valid!\nBe in touch with {HIDY_BOT_ID}")
-    PANEL_ADMIN_ID = PANEL_ADMIN_ID[0][0]
-
-
-def panel_url_validator(url):
-    if not (url.startswith("https://") or url.startswith("http://")):
+def url_validator(url):
+    """
+    Validate the Hiddify panel URL.
+    This function checks if the URL is accessible and valid for Hiddify panel.
+    """
+    print(colored("Checking URL...", "yellow"))
+    
+    if not url:
+        print(colored("URL is empty!", "red"))
+        return False
+    
+    # Basic URL format validation
+    if not (url.startswith("http://") or url.startswith("https://")):
         print(colored("URL must start with http:// or https://", "red"))
         return False
+    
+    # Remove trailing slash
     if url.endswith("/"):
         url = url[:-1]
-    if url.endswith("admin"):
+    
+    # Remove common suffixes for cleaning
+    if url.endswith("/admin"):
         url = url.replace("/admin", "")
-    if url.endswith("admin/user"):
+    if url.endswith("/admin/user"):
         url = url.replace("/admin/user", "")
-    print(colored("Checking URL...", "yellow"))
+    
+    # Test connection to the base URL
     try:
-        request = requests.get(f"{url}/admin/")
+        # Test the root URL
+        request = requests.get(f"{url}/", timeout=10)
     except requests.exceptions.ConnectionError as e:
         print(colored("URL is not valid! Error in connection", "red"))
+        print(colored(f"Error: {e}", "red"))
+        return False
+    except requests.exceptions.Timeout:
+        print(colored("URL is not valid! Request timed out", "red"))
+        return False
+    except Exception as e:
+        print(colored("URL is not valid! Unexpected error", "red"))
         print(colored(f"Error: {e}", "red"))
         return False
     
@@ -138,170 +262,257 @@ def panel_url_validator(url):
         print(colored("URL is not valid!", "red"))
         print(colored(f"Error: {request.status_code}", "red"))
         return False
-    elif request.status_code == 200:
+    else:
         print(colored("URL is valid!", "green"))
-    return url
-
+        return url
 
 def bot_token_validator(token):
+    """
+    Validate the Telegram Bot Token.
+    This function checks if the token is valid by calling Telegram's getMe API.
+    """
     print(colored("Checking Bot Token...", "yellow"))
+    
+    if not token:
+        print(colored("Bot Token is empty!", "red"))
+        return False
+    
     try:
-        request = requests.get(f"https://api.telegram.org/bot{token}/getMe")
+        request = requests.get(f"https://api.telegram.org/bot{token}/getMe", timeout=10)
     except requests.exceptions.ConnectionError:
         print(colored("Bot Token is not valid! Error in connection", "red"))
         return False
+    except requests.exceptions.Timeout:
+        print(colored("Bot Token is not valid! Request timed out", "red"))
+        return False
+    except Exception as e:
+        print(colored("Bot Token is not valid! Unexpected error", "red"))
+        print(colored(f"Error: {e}", "red"))
+        return False
+    
     if request.status_code != 200:
         print(colored("Bot Token is not valid!", "red"))
         return False
     elif request.status_code == 200:
         print(colored("Bot Token is valid!", "green"))
-        print(colored("Bot Username:", "green"), "@"+request.json()['result']['username'])
-    return True
-
+        print(colored("Bot Username:", "green"), "@" + request.json()['result']['username'])
+        return True
 
 def set_by_user():
+    """
+    Get configuration from user input.
+    This function prompts the user to enter configuration values.
+    """
     print()
-    print(
-        colored("Example: 123456789\nIf you have more than one admin, split with comma(,)\n[get it from @userinfobot]",
-                "yellow"))
+    print(colored(
+        "Example: 123456789\n"
+        "If you have more than one admin, split with comma(,)\n"
+        "[get it from @userinfobot]", "yellow"))
+    
     while True:
         admin_id = input("[+] Enter Telegram Admin Number IDs: ")
         admin_ids = admin_id.split(',')
         admin_ids = [admin_id.strip() for admin_id in admin_ids]
         if not all(admin_id.isdigit() for admin_id in admin_ids):
-            print(colored("Admin IDs must be numbers separated by commas!", "red"))
-            continue
-        admin_ids = [int(admin_id) for admin_id in admin_ids]
-        break
-    print()
-    print(colored("Example: 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ\n[get it from @BotFather]", "yellow"))
-    while True:
-        token = input("[+] Enter your Admin bot token: ")
-        if not token:
-            print(colored("Token is required", "red"))
-            continue
-        if not bot_token_validator(token):
-            continue
-        break
-
-    print()
-    print(colored("You can use the bot as a userbot for your clients!", "yellow"))
-    while True:
-        userbot = input("Do you want a  Bot for your users? (y/n): ").lower()
-        if userbot not in ["y", "n"]:
-            print(colored("Please enter y or n!", "red"))
-            continue
-        break
-    if userbot == "y":
-        print()
-        print(colored("Example: 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ\n[get it from @BotFather]", "yellow"))
-        while True:
-            client_token = input("[+] Enter your client (For Users) bot token: ")
-            if not client_token:
-                print(colored("Token is required!", "red"))
-                continue
-            if client_token == token:
-                print(colored("Client token must be different from Admin token!", "red"))
-                continue
-            if not bot_token_validator(client_token):
-                continue
+            print(colored("Invalid Admin ID(s)!", "red"))
+        else:
             break
-    else:
-        client_token = None
-    print()
-    print(colored(
-        "Example: https://panel.example.com/7frgemkvtE0/78854985-68dp-425c-989b-7ap0c6kr9bd4\n[exactly like this!]",
-        "yellow"))
+    
     while True:
-        url = input("[+] Enter your panel URL:")
-        if not url:
-            print(colored("URL is required!", "red"))
-            continue
-        url = panel_url_validator(url)
-        if not url:
-            continue
-        break
-    print()
-    print(colored("Example: EN (default: FA)\n[It is better that the language of the bot is the same as the panel]",
-                  "yellow"))
+        token = input("[+] Enter your Telegram Bot Token: ")
+        if bot_token_validator(token):
+            break
+    
+    client_token = input("[+] Enter your Telegram User Bot Token (Optional, press Enter to skip): ")
+    
     while True:
-        lang = input("[+] Select your language (EN(English), FA(Persian)): ") or "FA"
-        if lang not in ["EN", "FA"]:
-            print(colored("Language must be EN or FA!", "red"))
-            continue
-        break
+        url = input("[+] Enter your Hiddify Panel URL (e.g., https://yourdomain.com): ")
+        validated_url = url_validator(url)
+        if validated_url:
+            url = validated_url
+            break
+    
+    while True:
+        lang = input("[+] Enter your language (FA or EN, default is FA): ").upper()
+        if lang in ["FA", "EN"]:
+            break
+        elif lang == "":
+            lang = "FA"
+            break
+        else:
+            print(colored("Invalid language!", "red"))
+    
+    return {
+        "admin_ids": ",".join(admin_ids),
+        "token": token,
+        "client_token": client_token,
+        "url": url,
+        "lang": lang
+    }
 
-    return admin_ids, token, url, lang, client_token
-
-
-def set_config_in_db(db, admin_ids, token, url, lang, client_token):
+def set_config_in_db(db, admin_ids, token, url, lang, client_token=""):
+    """
+    Save configuration to the database.
+    This function stores the configuration values in the appropriate config tables.
+    """
+    logger.info("Saving configuration to database...")
+    
     try:
-        # if str_config is not exists, create it
-        if not db.select_str_config():
-            db.add_str_config("bot_admin_id", value=json.dumps(admin_ids))
-            db.add_str_config("bot_token_admin", value=token)
-            db.add_str_config("bot_token_client", value=client_token)
-            db.add_str_config("bot_lang", value=lang)
-        else:
-            db.edit_str_config("bot_admin_id", value=json.dumps(admin_ids))
-            db.edit_str_config("bot_token_admin", value=token)
-            db.edit_str_config("bot_token_client", value=client_token)
-            db.edit_str_config("bot_lang", value=lang)
-        # if servers is not exists, create it
-        if not db.select_servers():
-            db.add_server(url, 2000, title="Main Server", default_server=True)
-        else:
-            # find default server
-            default_servers = db.find_server(default_server=True)
-            if default_servers:
-                default_server_id = default_servers[0]['id']
-                default_server = default_servers[0]
-                if default_server['url'] != url:
-                    db.edit_server(default_server_id, url=url)
-            else:
-                db.add_server(url, 2000, title="Main Server", default_server=True)
+        # Save integer configs (none in this basic set_by_user, but could be extended)
+        # Example: db.edit_int_config("some_int_key", some_int_value)
+        
+        # Save string configs
+        db.edit_str_config("owners", admin_ids)
+        db.edit_str_config("telegram_token", token)
+        db.edit_str_config("client_token", client_token)
+        db.edit_str_config("lang", lang)
+        
+        # For the URL, we'll save it in the new format if possible
+        # Parse the URL to get base and proxy path
+        parsed_url = urlparse(url)
+        base_url = f"{parsed_url.scheme}://{parsed_url.netloc}"
+        # Try to determine proxy path, defaulting to 'proxy'
+        path_parts = [p for p in parsed_url.path.split('/') if p]
+        proxy_path = path_parts[0] if path_parts else "proxy"
+        
+        db.edit_str_config("hiddify_base_url", base_url)
+        db.edit_str_config("hiddify_proxy_path", proxy_path)
+        # The API key would need to be entered separately or retrieved from panel
+        # db.edit_str_config("hiddify_api_key", api_key) 
+        
+        # Also save the old format for backward compatibility
+        db.edit_str_config("url", url)
+        
+        # Save boolean configs (none in this basic set_by_user, but could be extended)
+        # Example: db.edit_bool_config("some_bool_key", some_bool_value)
+        
+        logger.info("Configuration saved to database successfully.")
+        return True
     except Exception as e:
-        logging.error(f"Error while inserting config to database \n Error:{e}")
-        raise Exception(f"Error while inserting config to database \nBe in touch with {HIDY_BOT_ID}")
+        logger.error(f"Error saving configuration to database: {e}")
+        return False
 
-
-def print_current_conf(conf, server_url):
-    print()
-    print(colored("Current configration data:", "yellow"))
-    print(f"[+] Admin IDs: {conf['bot_admin_id']}")
-    print(f"[+] Admin Bot Token: {conf['bot_token_admin']}")
-    print(f"[+] Client Bot Token: {conf['bot_token_client']}")
-    print(f"[+] Panel URL: {server_url}")
-    print(f"[+] Language: {conf['bot_lang']}")
-    print()
-
-
-if __name__ == '__main__':
-    db = UserDBManager(USERS_DB_LOC)
-    conf = load_config(db)
-    server_url = load_server_url(db)
-    if conf['bot_admin_id'] and conf['bot_token_admin'] and conf['bot_lang'] and server_url:
-        print("Config is already set!")
-        print_current_conf(conf, server_url)
-        print("Do you want to change config? (y/n): ")
-        if input().lower() == "y":
-            admin_ids, token, url, lang, client_token = set_by_user()
-            set_config_in_db(db, admin_ids, token, url, lang, client_token)
-            conf = load_config(db)
-            server_url = load_server_url(db)
-            set_config_variables(conf, server_url)
+def print_current_conf(conf, server_info):
+    """
+    Print the current configuration in a readable format.
+    """
+    print("\n" + "="*50)
+    print(colored("Current Configuration:", "cyan"))
+    print("="*50)
+    
+    # Print basic info
+    print(f"{'Version':<25}: {__version__}")
+    print(f"{'Language':<25}: {conf.get('lang', 'N/A')}")
+    
+    # Print Admin IDs
+    try:
+        admin_ids = [id.strip() for id in conf.get('owners', '').split(',')]
+        print(f"{'Admin IDs':<25}: {', '.join(admin_ids)}")
+    except:
+        print(f"{'Admin IDs':<25}: {conf.get('owners', 'N/A')}")
+    
+    # Print Bot Tokens
+    print(f"{'Admin Bot Token':<25}: {conf.get('telegram_token', 'N/A')[:10]}..." if conf.get('telegram_token') else f"{'Admin Bot Token':<25}: N/A")
+    client_token_display = conf.get('client_token', 'N/A')
+    if client_token_display and len(client_token_display) > 10:
+        client_token_display = client_token_display[:10] + "..."
+    print(f"{'User Bot Token':<25}: {client_token_display}")
+    
+    # Print Hiddify Panel Info
+    if server_info:
+        print(f"{'Hiddify Base URL':<25}: {server_info.get('base_url', 'N/A')}")
+        print(f"{'Hiddify Proxy Path':<25}: {server_info.get('proxy_path', 'N/A')}")
+        api_key_display = server_info.get('api_key', 'N/A')
+        if api_key_display != 'N/A' and len(api_key_display) > 10:
+            api_key_display = api_key_display[:10] + "..."
+        print(f"{'Hiddify API Key':<25}: {api_key_display}")
     else:
-        admin_ids, token, url, lang, client_token = set_by_user()
-        set_config_in_db(db, admin_ids, token, url, lang, client_token)
-        conf = load_config(db)
-        server_url = load_server_url(db)
-    set_config_variables(conf, server_url)
-    # close database connection
-    db.close()
+        print(f"{'Panel URL':<25}: {conf.get('url', 'N/A')}")
+    
+    print("="*50)
 
-db = UserDBManager(USERS_DB_LOC)
-db.set_default_configs()
-conf = load_config(db)
-server_url = load_server_url(db)
-set_config_variables(conf, server_url)
-db.close()
+# --- Main Execution ---
+if __name__ == "__main__":
+    # This block runs when the script is executed directly
+    print(colored("Hiddify Telegram Bot Configuration", "green"))
+    print(colored(f"Version: {__version__}", "yellow"))
+    print(colored("https://github.com/B3H1Z/Hiddify-Telegram-Bot", "blue"))
+    print()
+    
+    try:
+        # Import the database manager
+        # We do this inside the if block to avoid circular imports during normal operation
+        from Database.dbManager import UserDBManager
+        USERS_DB = UserDBManager(USERS_DB_LOC)
+        
+        if not USERS_DB.conn:
+            print(colored("Failed to connect to database!", "red"))
+            exit(1)
+        
+        # Load current configuration
+        current_configs = load_config(USERS_DB)
+        current_server_info = load_server_url(USERS_DB)
+        
+        # Check if configuration exists
+        if current_configs and current_configs.get('owners') and current_configs.get('telegram_token'):
+            print(colored("Configuration already exists!", "yellow"))
+            print_current_conf(current_configs, current_server_info)
+            
+            # Ask user if they want to change the configuration
+            while True:
+                change_conf = input("[+] Do you want to change the configuration? (y/N): ").lower()
+                if change_conf in ["y", "yes"]:
+                    # Get new configuration from user
+                    new_config = set_by_user()
+                    # Save new configuration to database
+                    if set_config_in_db(
+                        USERS_DB, 
+                        new_config["admin_ids"], 
+                        new_config["token"], 
+                        new_config["url"], 
+                        new_config["lang"], 
+                        new_config["client_token"]
+                    ):
+                        print(colored("Configuration updated successfully!", "green"))
+                        # Reload and print new configuration
+                        updated_configs = load_config(USERS_DB)
+                        updated_server_info = load_server_url(USERS_DB)
+                        print_current_conf(updated_configs, updated_server_info)
+                    else:
+                        print(colored("Failed to update configuration!", "red"))
+                    break
+                elif change_conf in ["n", "no", ""]:
+                    print(colored("Using existing configuration.", "green"))
+                    break
+                else:
+                    print(colored("Invalid input!", "red"))
+        else:
+            print(colored("No configuration found. Please configure the bot.", "yellow"))
+            # Get configuration from user
+            new_config = set_by_user()
+            # Save configuration to database
+            if set_config_in_db(
+                USERS_DB, 
+                new_config["admin_ids"], 
+                new_config["token"], 
+                new_config["url"], 
+                new_config["lang"], 
+                new_config["client_token"]
+            ):
+                print(colored("Configuration saved successfully!", "green"))
+                # Print the new configuration
+                saved_configs = load_config(USERS_DB)
+                saved_server_info = load_server_url(USERS_DB)
+                print_current_conf(saved_configs, saved_server_info)
+            else:
+                print(colored("Failed to save configuration!", "red"))
+                
+    except KeyboardInterrupt:
+        print(colored("\n\nOperation cancelled by user.", "yellow"))
+    except Exception as e:
+        print(colored(f"\nAn error occurred: {e}", "red"))
+        logging.error(f"Error in main execution: {e}")
+    finally:
+        # Close database connection if it was opened
+        if 'USERS_DB' in locals() and USERS_DB and USERS_DB.conn:
+            USERS_DB.close_connection()
