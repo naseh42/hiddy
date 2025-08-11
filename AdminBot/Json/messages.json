@@ -47,16 +47,16 @@
     "INFO_REMAINING_DAYS": "📆Remaining Days:",
     "INFO_LAST_CONNECTION": "📶Last Connection:",
     "INFO_COMMENT": "📝Comment:",
-    "INFO_USER_NAME": "⬖ Name:",
-    "INFO_USER_USERNAME": "⬖ Username:",
-    "INFO_USER_NUM_ID": "⬖ Telegram ID:",
-    "HEADER_USERS_LIST": "⬖ Users List",
-    "HEADER_USERS_LIST_MSG": "ℹ️You can see the list of users and their information here.",
-    "NUM_USERS": "🟢Number of users: ",
-    "NUM_USERS_ONLINE": "🔵Online users: ",
-    "NUM_GET_FREE_USERS": "⬖ Number of received free test: ",
-    "NUM_ORDERED_USERS": "⬖ Number of users placed order: ",
-    "TOTAL_BALANCE_USERS": "⬖ Total balance of users' wallets: ",
+    "INFO_USER_NAME": "Name:",
+    "INFO_USER_USERNAME": "Username:",
+    "INFO_USER_NUM_ID": "Telegram ID:",
+    "HEADER_USERS_LIST": "Users List",
+    "HEADER_USERS_LIST_MSG": "You can see the list of users and their information here.",
+    "NUM_USERS": "Number of users: ",
+    "NUM_USERS_ONLINE": "Online users: ",
+    "NUM_GET_FREE_USERS": "Number of received free test: ",
+    "NUM_ORDERED_USERS": "Number of users placed order: ",
+    "TOTAL_BALANCE_USERS": "Total balance of users' wallets: ",
     "SEARCH_USER": "Please select the search method",
     "SEARCH_USER_NAME": "Please enter the name of the user: ",
     "SEARCH_USER_TELEGRAM_ID": "Please enter the Telegram ID of the user: ",
@@ -72,6 +72,7 @@
     "AGO": "ago",
     "NEVER": "Never",
     "TOMAN": "T",
+    "RIAL": "Rial",
     "CURRENT_VALUE": "Current Value",
     "ERROR_CLIENT_TOKEN": "❌Client bot is not set!",
     "USERS_BOT_ADD_PLAN": "Please complete the following information to add a plan",
@@ -100,7 +101,7 @@
     "USERS_BOT_SETTING_WELCOME_MSG": "Please enter the welcome message:",
     "USERS_BOT_SETTING_FAQ_MSG": "Please enter the faq text to show in the user panel:",
     "USERS_BOT_SETTINGS_TEST_SUB_DAYS": "Please enter the days of test subscription:",
-    "USERS_BOT_SETTINGS_TEST_SUB_USAGE": "Please enter the usage limit(GB) of test subscription:",
+    "USERS_BOT_SETTINGS_TEST_SUB_SIZE": "Please enter the usage limit(GB) of test subscription:",
     "USERS_BOT_SETTINGS_NOTIF_REMINDER_DAYS": "Set the number of days before the end of the subscription to send a reminder message:",
     "USERS_BOT_SETTINGS_NOTIF_REMINDER_USAGE": "Set the remaining GB to send a reminder message:",
     "USERS_BOT_SETTINGS_PANEL_MANUAL": "Please enter the manual text to show in the user panel:",
@@ -148,50 +149,52 @@
     "DELETE_SERVER_QUESTION": "Are you sure you want to delete the server?\n⚠️After deleting subscriptions related to this server, it is not visible to users.",
     "ERROR_SERVER_NOT_FOUND": "❌Server not found",
     "INFO_PLAN_ID": "Plan ID:",
-    "INFO_PLAN_USAGE": "Usage limit(GB):",
+    "INFO_PLAN_SIZE": "Usage limit(GB):",
     "INFO_PLAN_DAYS": "Time limitation:",
-    "INFO_PLAN_PRICE": "Price",
+    "INFO_PLAN_PRICE": "Price:",
     "INFO_PLAN_DESC": "Description:",
-    "INFO_PLAN_NUM_ORDER": "Purchases",
-    "INFO_PLAN_TOTAL_SALE": "Total sales",
+    "INFO_PLAN_NUM_ORDER": "Purchases:",
+    "INFO_PLAN_TOTAL_SALE": "Total sales:",
+    "INFO_PLAN_SERVER": "Server:",
+    "INFO_PLAN_STATUS": "Status:",
     "SUCCESS_SERVER_TITLE_EDITED":"✅Title edited to:",
     "SUCCESS_SERVER_USER_LIMIT_EDITED" : "✅User limit edited to:",
     "SUCCESS_SERVER_URL_EDITED": "✅URL edited to:",
-    "SERVER": "⬖ Server:",
-    "HEADER_ORDERS_LIST": "⬖ Orders List",
-    "NUM_ORDERS": "⬖ Number of Orders: ",
-    "TOTAL_ORDERS_VALUME": "⬖ Total volume ordered(GB): ",
-    "TOTAL_ORDERS_SALES": "⬖ Total value of orders: ",
-    "LAST_30DAYS_NUM_ORDERS": "⬖ Number of Last 30 Days Orders: ",
-    "LAST_30DAYS_ORDERS_VALUME": "⬖ Volume ordered in Last 30 Days(GB): ",
-    "LAST_30DAYS_ORDERS_SALES": "⬖ Value of orders in Last 30 Days: ",
-    "THIS_MONTH_NUM_ORDERS": "⬖ Number of This Month Orders: ",
-    "THIS_MONTH_ORDERS_VALUME": "⬖ Volume ordered in This Month(GB): ",
-    "THIS_MONTH_ORDERS_SALES": "⬖ Value of orders in This Month: ",
-    "HEADER_PAYMENT_LIST": "⬖ Payment List",
-    "NUM_PAYMENTS": "⬖ Number of Payments: ",
-    "TOTAL_PAYMENTS_AMOUNT": "⬖ Total amount payment: ",
-    "LAST_30DAYS_NUM_PAYMENTS": "⬖ Number of Last 30 Days Payments: ",
-    "LAST_30DAYS_PAYMENTS_AMOUNT": "⬖ Amount of Payments in Last 30 Days: ",
-    "THIS_MONTH_NUM_PAYMENTS": "⬖ Number of This Month Payments: ",
-    "THIS_MONTH_PAYMENTS_AMOUNT": "⬖ Amount of Payments in This Month: ",
-    "GET_FREE_TEST_STATUS": "⬖ Free Test Status: ",
-    "WALLET_BALANCE": "⬖ Wallet Balance: ",
-    "NUM_ORDER_SUB": "⬖ Number of ordered subscriptions: ",
-    "NUM_NON_ORDER_SUB": "⬖ Number of connected subscriptions: ",
-    "NUM_APPROVED_PAYMENTS": "⬖ Number of Approved Payments: ",
-    "BOT_ORDER_ID": "⬖ Order Number: ",
-    "ORDERED_VALUME": "⬖ Ordered Volume: ",
-    "ORDERED_DAYS": "⬖ Ordered Days: ",
-    "ORDERED_PRICE": "⬖ Ordered Price: ",
-    "SUB_NAME": "⬖ Subscription title: ",
-    "BOT_ORDER_DATE": "⬖ Order Date: ",
+    "SERVER": "Server:",
+    "HEADER_ORDERS_LIST": "Orders List",
+    "NUM_ORDERS": "Number of Orders: ",
+    "TOTAL_ORDERS_VOLUME": "Total volume ordered(GB): ",
+    "TOTAL_ORDERS_SALES": "Total value of orders: ",
+    "LAST_30DAYS_NUM_ORDERS": "Number of Last 30 Days Orders: ",
+    "LAST_30DAYS_ORDERS_VOLUME": "Volume ordered in Last 30 Days(GB): ",
+    "LAST_30DAYS_ORDERS_SALES": "Value of orders in Last 30 Days: ",
+    "THIS_MONTH_NUM_ORDERS": "Number of This Month Orders: ",
+    "THIS_MONTH_ORDERS_VOLUME": "Volume ordered in This Month(GB): ",
+    "THIS_MONTH_ORDERS_SALES": "Value of orders in This Month: ",
+    "HEADER_PAYMENT_LIST": "Payment List",
+    "NUM_PAYMENTS": "Number of Payments: ",
+    "TOTAL_PAYMENTS_AMOUNT": "Total amount payment: ",
+    "LAST_30DAYS_NUM_PAYMENTS": "Number of Last 30 Days Payments: ",
+    "LAST_30DAYS_PAYMENTS_AMOUNT": "Amount of Payments in Last 30 Days: ",
+    "THIS_MONTH_NUM_PAYMENTS": "Number of This Month Payments: ",
+    "THIS_MONTH_PAYMENTS_AMOUNT": "Amount of Payments in This Month: ",
+    "GET_FREE_TEST_STATUS": "Free Test Status: ",
+    "WALLET_BALANCE": "Wallet Balance: ",
+    "NUM_ORDER_SUB": "Number of ordered subscriptions: ",
+    "NUM_NON_ORDER_SUB": "Number of connected subscriptions: ",
+    "NUM_APPROVED_PAYMENTS": "Number of Approved Payments: ",
+    "BOT_ORDER_ID": "Order Number: ",
+    "ORDERED_VOLUME": "Ordered Volume: ",
+    "ORDERED_DAYS": "Ordered Days: ",
+    "ORDERED_PRICE": "Ordered Price: ",
+    "SUB_NAME": "Subscription title: ",
+    "BOT_ORDER_DATE": "Order Date: ",
     "ORDER_NUMBER_REQUEST": "Please enter the order number:",
-    "PAYMENTS_ID": "⬖ Payment number: ",
-    "BOT_PAYMENT_DATE": "⬖ Payment Date: ",
-    "PAIED_AMOUNT": "⬖ Paid amount: ",
-    "STATUS": "⬖ Status: ",
-    "PAYMENTS_METHOD": "⬖ Payment Method: ",
+    "PAYMENTS_ID": "Payment number: ",
+    "BOT_PAYMENT_DATE": "Payment Date:",
+    "PAID_AMOUNT": "Paid amount: ",
+    "STATUS": "Status: ",
+    "PAYMENT_METHOD": "Payment Method: ",
     "PAYMENT_NUMBER_REQUEST": "Please enter the payment number:",
     "CHANGE_STATUS_PAYMENT_CONFIRM_REQUEST": "⚠️Are you sure about the changing payment status?",
     "WALLET_CHANGED_TO_PAYMENT_CONFIRMED": "✅Payment changed to confirmed by admin\nYour wallet balance has increased.",
@@ -200,11 +203,11 @@
     "PAYMENT_CHANGED_TO_NOT_CONFIRMED_ADMIN": "❌Payment changed to rejected",
     "SUCCESS_SEARCH_ORDER": "✅Order found",
     "SUCCESS_SEARCH_PAYMENT": "✅Payment found",
-    "NOT_SET ": "Not set",
+    "NOT_SET": "Not set",
     "EDIT_WALLET_BALANCE": "Please enter the new balance:",
     "SEND_MESSAGE_TO_USER": "Please enter message you want to send to the user:",
-    "MESSAGE_SENDED": "Message Sended",
-    "ADMIN": "َAdmin:",
+    "MESSAGE_SENT": "Message Sent",
+    "ADMIN": "Admin:",
     "MESSAGE_FROM_ADMIN": "Message from admin",
     "MESSAGE_TEXT": "Message:",
     "ERROR_USER_HAVE_TEST_SUB": "❌User already have a test subscription",
@@ -212,7 +215,44 @@
     "WALLET_BALANCE_CHANGED_BY_ADMIN_P1": "💰Wallet balance changed to",
     "WALLET_BALANCE_CHANGED_BY_ADMIN_P2": "by admin",
     "SUCCESS_BAN_USER": "✅User banned",
-    "SUCCESS_UNBAN_USER": "✅User unbanned"
+    "SUCCESS_UNBAN_USER": "✅User unbanned",
+    "ACTIVE": "Active",
+    "INACTIVE": "Inactive",
+    "CONFIRMED": "Confirmed",
+    "NOT_CONFIRMED": "Not Confirmed",
+    "PENDING": "Pending",
+    "SYSTEM_STATUS": "System Status",
+    "PANEL_INFO": "Panel Info",
+    "PANEL_VERSION": "Version",
+    "PANEL_UPTIME": "Uptime",
+    "ADMIN_INFO": "Admin Info",
+    "ADMIN_NAME": "Name",
+    "ADMIN_UUID": "UUID",
+    "SERVERS_INFO": "Servers Info",
+    "USER_STATISTICS": "User Statistics",
+    "TOTAL_USERS": "Total Users",
+    "ACTIVE_USERS": "Active Users",
+    "EXPIRED_USERS": "Expired Users",
+    "ORDER_STATISTICS": "Order Statistics",
+    "TOTAL_ORDERS": "Total Orders",
+    "TOTAL_REVENUE": "Total Revenue",
+    "AFFILIATE_SYSTEM": "Affiliate System",
+    "TOTAL_REFERRALS": "Total Referrals",
+    "TOTAL_COMMISSION": "Total Commission",
+    "COUPON_INFO": "Coupon Info",
+    "COUPON_CODE": "Coupon Code",
+    "COUPON_DISCOUNT": "Discount",
+    "COUPON_EXPIRY": "Expiry Date",
+    "INVALID_COUPON": "Invalid Coupon",
+    "LOAD_BALANCING_STATUS": "Load Balancing Status",
+    "OWNER_INFO_USERNAME": "Telegram Support Username:",
+    "OWNER_INFO_CARD_NUMBER": "Bank Card Number:",
+    "OWNER_INFO_CARD_OWNER": "Bank Card Name:",
+    "ABOUT_BOT": "About Bot",
+    "CREATED_BY": "Created by",
+    "GITHUB_REPO": "GitHub Repository",
+    "LICENSE": "License",
+    "VERSION": "Version"
   },
   "FA": {
     "WELCOME": "به ربات مدیریت هیدی بات خوش آمدید.",
@@ -262,16 +302,16 @@
     "INFO_REMAINING_DAYS": "📆انقضا:",
     "INFO_LAST_CONNECTION": "📶آخرین اتصال:",
     "INFO_COMMENT": "📝یادداشت:",
-    "INFO_USER_NAME": "⬖ کاربر:",
-    "INFO_USER_USERNAME": "⬖ نام کاربری:",
-    "INFO_USER_NUM_ID": "⬖ شناسه کاربر:",
-    "HEADER_USERS_LIST": "⬖ لیست کاربران",
-    "HEADER_USERS_LIST_MSG": "ش️ما می‌توانید لیست کاربران و اطلاعات آن‌ها را اینجا مشاهده کنید",
-    "NUM_USERS": "⬖ تعداد کاربران: ",
-    "NUM_USERS_ONLINE": "🔵کاربران آنلاین: ",
-    "NUM_GET_FREE_USERS": "⬖ تعداد کاربران تست رایگان: ",
-    "NUM_ORDERED_USERS": "⬖ تعداد کاربران سفارشات: ",
-    "TOTAL_BALANCE_USERS": "⬖ مجموع موجودی کیف پول کاربران: ",
+    "INFO_USER_NAME": "کاربر:",
+    "INFO_USER_USERNAME": "نام کاربری:",
+    "INFO_USER_NUM_ID": "شناسه کاربر:",
+    "HEADER_USERS_LIST": "لیست کاربران",
+    "HEADER_USERS_LIST_MSG": "شما می‌توانید لیست کاربران و اطلاعات آن‌ها را اینجا مشاهده کنید",
+    "NUM_USERS": "تعداد کاربران: ",
+    "NUM_USERS_ONLINE": "کاربران آنلاین: ",
+    "NUM_GET_FREE_USERS": "تعداد کاربران تست رایگان: ",
+    "NUM_ORDERED_USERS": "تعداد کاربران سفارشات: ",
+    "TOTAL_BALANCE_USERS": "مجموع موجودی کیف پول کاربران: ",
     "SEARCH_USER": "لطفاً روش جستجو را انتخاب کنید",
     "SEARCH_USER_NAME": "لطفاً نام کاربر را وارد کنید: ",
     "SEARCH_USER_TELEGRAM_ID": "لطفا Telegram ID کاربر را وارد کنید: ",
@@ -287,6 +327,7 @@
     "AGO": "پیش",
     "NEVER": "هرگز",
     "TOMAN": "تومان",
+    "RIAL": "ریال",
     "CURRENT_VALUE": "مقدار فعلی",
     "ERROR_CLIENT_TOKEN": "❌ربات کاربران تنظیم نشده",
     "USERS_BOT_ADD_PLAN": "⬇️اطلاعات لازم را برای افزودن پلن وارد کنید",
@@ -314,7 +355,7 @@
     "USERS_BOT_SETTING_WELCOME_MSG": "لطفا پیام خوش آمدگویی را تنظیم کنید:",
     "USERS_BOT_SETTING_FAQ_MSG": "لطفا متن سوالات متداول مورد نظر را برای نمایش در پنل کاربران وارد کنید:",
     "USERS_BOT_SETTINGS_TEST_SUB_DAYS": "لطفا تعداد روزهای اشتراک تست را تنظیم کنید:",
-    "USERS_BOT_SETTINGS_TEST_SUB_USAGE": "لطفا حجم(گیگابایت) اشتراک تست را تنظیم کنید:",
+    "USERS_BOT_SETTINGS_TEST_SUB_SIZE": "لطفا حجم(گیگابایت) اشتراک تست را تنظیم کنید:",
     "USERS_BOT_SETTINGS_NOTIF_REMINDER_DAYS": "تعیین کنید که چند روز قبل از اتمام اشتراک پیام یادآوری تمدید اشتراک ارسال شود:",
     "USERS_BOT_SETTINGS_NOTIF_REMINDER_USAGE": "تعیین کنید که چند گیگ مانده به اتمام اشتراک پیام یادآوری تمدید اشتراک ارسال شود:",
     "USERS_BOT_SETTINGS_PANEL_MANUAL": "لطفا متن راهنمای مورد نظر را برای نمایش در پنل کاربران وارد کنید:",
@@ -363,50 +404,52 @@
     "DELETE_SERVER_QUESTION": "آیا از حذف سرور مطمئن هستید؟\n⚠️بعد از حذف، اشتراک‌های مربوط به این سرور برای کاربران قابل مشاهده نمی‌باشد و غیر قابل بازگردانی می‌باشد.",
     "ERROR_SERVER_NOT_FOUND": "❌سرور یافت نشد",
     "INFO_PLAN_ID": "آی دی:",
-    "INFO_PLAN_USAGE": "محدودیت مصرف(GB):",
+    "INFO_PLAN_SIZE": "محدودیت مصرف(GB):",
     "INFO_PLAN_DAYS": "محدودیت زمان(روز):",
     "INFO_PLAN_PRICE": "قیمت:",
     "INFO_PLAN_DESC": "توضیحات:",
     "INFO_PLAN_NUM_ORDER": "تعداد سفارش:",
     "INFO_PLAN_TOTAL_SALE": "مجموع فروش:",
+    "INFO_PLAN_SERVER": "سرور:",
+    "INFO_PLAN_STATUS": "وضعیت:",
     "SUCCESS_SERVER_TITLE_EDITED":"✅عنوان سرور ویرایش شد به:",
     "SUCCESS_SERVER_USER_LIMIT_EDITED" : "✅محدودیت کاربر ویرایش شد به:",
     "SUCCESS_SERVER_URL_EDITED": "✅لینک سرور ویرایش شد به:",
-    "SERVER": "⬖ سرور: ",
-    "HEADER_ORDERS_LIST": "⬖ لیست سفارشات",
-    "NUM_ORDERS": "⬖ تعداد سفارشات: ",
-    "TOTAL_ORDERS_VALUME": "⬖ مجموع حجم سفارشات(GB): ",
-    "TOTAL_ORDERS_SALES": "⬖ مجموع ارزش سفارشات: ",
-    "LAST_30DAYS_NUM_ORDERS": "⬖ تعداد سفارشات 30 روز گذشته: ",
-    "LAST_30DAYS_ORDERS_VALUME": "⬖ حجم سفارشات 30 روز گذشته(GB): ",
-    "LAST_30DAYS_ORDERS_SALES": "⬖ ارزش سفارشات 30 روز گذشته: ",
-    "THIS_MONTH_NUM_ORDERS": "⬖ تعداد سفارشات این ماه: ",
-    "THIS_MONTH_ORDERS_VALUME": "⬖ حجم سفارشات این ماه(GB): ",
-    "THIS_MONTH_ORDERS_SALES": "⬖ ارزش سفارشات این ماه: ",
-    "HEADER_PAYMENT_LIST": "⬖ لیست تراکنشات",
-    "NUM_PAYMENTS": "⬖ تعداد تراکنشات: ",
-    "TOTAL_PAYMENTS_AMOUNT": "⬖ مبلغ تراکنشات: ",
-    "LAST_30DAYS_NUM_PAYMENTS": "⬖ تراکنشات 30 روز گذشته: ",
-    "LAST_30DAYS_PAYMENTS_AMOUNT": "⬖ مبلغ تراکنشات 30 روز گذشته: ",
-    "THIS_MONTH_NUM_PAYMENTS": "⬖ تراکنشات این ماه: ",
-    "THIS_MONTH_PAYMENTS_AMOUNT": "⬖ مبلغ تراکنشات این ماه: ",
-    "GET_FREE_TEST_STATUS": "⬖ وضعیت دریافت تست رایگان: ",
-    "WALLET_BALANCE": "⬖ موجودی کیف پول: ",
-    "NUM_ORDER_SUB": "⬖ تعداد اشتراک‌های خریداری شده: ",
-    "NUM_NON_ORDER_SUB": "⬖ تعداد اشتراک‌های متصل شده: ",
-    "NUM_APPROVED_PAYMENTS": "⬖ تعداد تراکنشات تایید شده: ",
-    "BOT_ORDER_ID": "⬖ شناسه سفارش: ",
-    "ORDERED_VALUME": "⬖ حجم سفارش(GB): ",
-    "ORDERED_DAYS": "⬖ تعداد روز سفارش: ",
-    "ORDERED_PRICE": "⬖ مبلغ سفارش: ",
-    "SUB_NAME": "⬖ عنوان اشتراک: ",
-    "BOT_ORDER_DATE": "⬖ تاریخ سفارش: ",
+    "SERVER": "سرور: ",
+    "HEADER_ORDERS_LIST": "لیست سفارشات",
+    "NUM_ORDERS": "تعداد سفارشات: ",
+    "TOTAL_ORDERS_VOLUME": "مجموع حجم سفارشات(GB): ",
+    "TOTAL_ORDERS_SALES": "مجموع ارزش سفارشات: ",
+    "LAST_30DAYS_NUM_ORDERS": "تعداد سفارشات 30 روز گذشته: ",
+    "LAST_30DAYS_ORDERS_VOLUME": "حجم سفارشات 30 روز گذشته(GB): ",
+    "LAST_30DAYS_ORDERS_SALES": "ارزش سفارشات 30 روز گذشته: ",
+    "THIS_MONTH_NUM_ORDERS": "تعداد سفارشات این ماه: ",
+    "THIS_MONTH_ORDERS_VOLUME": "حجم سفارشات این ماه(GB): ",
+    "THIS_MONTH_ORDERS_SALES": "ارزش سفارشات این ماه: ",
+    "HEADER_PAYMENT_LIST": "لیست تراکنشات",
+    "NUM_PAYMENTS": "تعداد تراکنشات: ",
+    "TOTAL_PAYMENTS_AMOUNT": "مبلغ تراکنشات: ",
+    "LAST_30DAYS_NUM_PAYMENTS": "تراکنشات 30 روز گذشته: ",
+    "LAST_30DAYS_PAYMENTS_AMOUNT": "مبلغ تراکنشات 30 روز گذشته: ",
+    "THIS_MONTH_NUM_PAYMENTS": "تراکنشات این ماه: ",
+    "THIS_MONTH_PAYMENTS_AMOUNT": "مبلغ تراکنشات این ماه: ",
+    "GET_FREE_TEST_STATUS": "وضعیت دریافت تست رایگان: ",
+    "WALLET_BALANCE": "موجودی کیف پول: ",
+    "NUM_ORDER_SUB": "تعداد اشتراک‌های خریداری شده: ",
+    "NUM_NON_ORDER_SUB": "تعداد اشتراک‌های متصل شده: ",
+    "NUM_APPROVED_PAYMENTS": "تعداد تراکنشات تایید شده: ",
+    "BOT_ORDER_ID": "شناسه سفارش: ",
+    "ORDERED_VOLUME": "حجم سفارش(GB): ",
+    "ORDERED_DAYS": "تعداد روز سفارش: ",
+    "ORDERED_PRICE": "مبلغ سفارش: ",
+    "SUB_NAME": "عنوان اشتراک: ",
+    "BOT_ORDER_DATE": "تاریخ سفارش: ",
     "ORDER_NUMBER_REQUEST": "لطفا شناسه سفارش را وارد کنید:",
-    "PAYMENTS_ID": "⬖ شناسه تراکنش: ",
-    "BOT_PAYMENT_DATE": "⬖ تاریخ تراکنش:",
-    "PAIED_AMOUNT": "⬖ مبلغ تراکنش: ",
-    "STATUS": "⬖ وضعیت: ",
-    "PAYMENTS_METHOD": "⬖ روش تراکنش: ",
+    "PAYMENTS_ID": "شناسه تراکنش: ",
+    "BOT_PAYMENT_DATE": "تاریخ تراکنش:",
+    "PAID_AMOUNT": "مبلغ تراکنش: ",
+    "STATUS": "وضعیت: ",
+    "PAYMENT_METHOD": "روش تراکنش: ",
     "PAYMENT_NUMBER_REQUEST": "لطفا شناسه تراکنش را وارد کنید:",
     "CHANGE_STATUS_PAYMENT_CONFIRM_REQUEST": "⚠️آیا از تغییر وضعیت تراکنش، اطمینان دارید؟",
     "WALLET_CHANGED_TO_PAYMENT_CONFIRMED": "✅وضیعت تراکنش شما توسط مدیر به تایید شده تغییر یافت\nاز طریق دکمه [💰کیف پول] میتوانید به موجودی کیف پول خود دسترسی داشته باشید.",
@@ -418,7 +461,7 @@
     "NOT_SET": "تنظیم نشده",
     "EDIT_WALLET_BALANCE": "لطفا مبلغی که میخواهید موجودی کیف پول به آن تغییر کند را به تومان وارد کنید:",
     "SEND_MESSAGE_TO_USER": "لطفا متن پیامی که می خواهید برای کاربر ارسال شود را وارد کنید:",
-    "MESSAGE_SENDED": "پیام ارسال شد",
+    "MESSAGE_SENT": "پیام ارسال شد",
     "ADMIN": "ادمین:",
     "MESSAGE_FROM_ADMIN": "📬پیام جدیدی از سمت ادمین دریافت شد",
     "MESSAGE_TEXT": "📄متن پیام:",
@@ -427,6 +470,43 @@
     "WALLET_BALANCE_CHANGED_BY_ADMIN_P1": "💰موجودی کیف پول شما توسط مدیر به",
     "WALLET_BALANCE_CHANGED_BY_ADMIN_P2": "تومان تغییر یافت",
     "SUCCESS_BAN_USER": "✅کاربر مسدود شد",
-    "SUCCESS_UNBAN_USER": "✅کاربر مسدود شده، آزاد شد"
+    "SUCCESS_UNBAN_USER": "✅کاربر مسدود شده، آزاد شد",
+    "ACTIVE": "فعال",
+    "INACTIVE": "غیرفعال",
+    "CONFIRMED": "تایید شده",
+    "NOT_CONFIRMED": "رد شده",
+    "PENDING": "در انتظار",
+    "SYSTEM_STATUS": "وضعیت سیستم",
+    "PANEL_INFO": "اطلاعات پنل",
+    "PANEL_VERSION": "نسخه",
+    "PANEL_UPTIME": "آپ‌تایم",
+    "ADMIN_INFO": "اطلاعات ادمین",
+    "ADMIN_NAME": "نام",
+    "ADMIN_UUID": "UUID",
+    "SERVERS_INFO": "اطلاعات سرورها",
+    "USER_STATISTICS": "آمار کاربران",
+    "TOTAL_USERS": "تعداد کل کاربران",
+    "ACTIVE_USERS": "کاربران فعال",
+    "EXPIRED_USERS": "کاربران منقضی",
+    "ORDER_STATISTICS": "آمار سفارشات",
+    "TOTAL_ORDERS": "تعداد کل سفارشات",
+    "TOTAL_REVENUE": "درآمد کل",
+    "AFFILIATE_SYSTEM": "سیستم نمایندگی",
+    "TOTAL_REFERRALS": "تعداد معرفی‌شده‌ها",
+    "TOTAL_COMMISSION": "کمیسیون کل",
+    "COUPON_INFO": "اطلاعات کوپن",
+    "COUPON_CODE": "کد کوپن",
+    "COUPON_DISCOUNT": "تخفیف",
+    "COUPON_EXPIRY": "تاریخ انقضا",
+    "INVALID_COUPON": "کوپن نامعتبر",
+    "LOAD_BALANCING_STATUS": "وضعیت تعادل بار",
+    "OWNER_INFO_USERNAME": "نام کاربری تلگرام پشتیبان:",
+    "OWNER_INFO_CARD_NUMBER": "شماره کارت بانکی:",
+    "OWNER_INFO_CARD_OWNER": "نام صاحب کارت:",
+    "ABOUT_BOT": "درباره ربات",
+    "CREATED_BY": "توسعه داده شده توسط",
+    "GITHUB_REPO": "مخزن گیت‌هاب",
+    "LICENSE": "مجوز",
+    "VERSION": "نسخه"
   }
 }
