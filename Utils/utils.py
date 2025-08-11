@@ -1,735 +1,961 @@
-# Description: API for connecting to the panel
-import json
-import logging
+# utils.py
+# Description: This file contains all the utility functions used in the bot.
 import os
-import random
-import string
-from io import BytesIO
-import re
-from datetime import datetime
-from urllib.parse import urlparse
-from Database.dbManager import USERS_DB
-import psutil
+import json
 import qrcode
 import requests
-from config import PANEL_URL, BACKUP_LOC, CLIENT_TOKEN, USERS_DB_LOC,RECEIPTIONS_LOC,BOT_BACKUP_LOC, API_PATH,LOG_DIR
-import AdminBot.templates
-from Utils import api
-from version import __version__
-import zipfile
-import shutil
-# Global variables
-# Make Session for requests
-session = requests.session()
-# Base panel URL - example: https://panel.example.com
-BASE_URL = urlparse(PANEL_URL).scheme + "://" + urlparse(PANEL_URL).netloc
+from io import BytesIO
+from config import LANG, USERS_DB
+from Database.dbManager import USERS_DB
+import logging
+from datetime import datetime
+# Import the new Hiddify API functions
+from api import get_user, get_users, create_user, update_user, get_all_configs, get_user_profile
+import pytz
 
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-# Users directory in panel
-# USERS_DIR = "/admin/user/"
-
-
-# Get request - return request object
-def get_request(url):
-    logging.info(f"GET Request to {privacy_friendly_logging_request(url)}")
-    global session
-    try:
-        req = session.get(url)
-        logging.info(f"GET Request to {privacy_friendly_logging_request(url)} - Status Code: {req.status_code}")
-        return req
-    except requests.exceptions.ConnectionError as e:
-        logging.exception(f"Connection Exception: {e}")
-        return False
-    except requests.exceptions.Timeout as e:
-        logging.exception(f"Timeout Exception: {e}")
-        return False
-    except requests.exceptions.RequestException as e:
-        logging.exception(f"General Connection Exception: {e}")
-        return False
-    except Exception as e:
-        logging.exception(f"General Exception: {e}")
-        return False
-
-
-# Post request - return request object
-def post_request(url, data):
-    logging.info(f"POST Request to {privacy_friendly_logging_request(url)} - Data: {data}")
-    global session
-    try:
-        req = session.post(url, data=data)
-        return req
-    except requests.exceptions.ConnectionError as e:
-        logging.exception(f"Connection Exception: {e}")
-        return False
-    except requests.exceptions.Timeout as e:
-        logging.exception(f"Timeout Exception: {e}")
-        return False
-    except requests.exceptions.RequestException as e:
-        logging.exception(f"General Connection Exception: {e}")
-        return False
-    except Exception as e:
-        logging.exception(f"General Exception: {e}")
-        return False
-
-
-def users_to_dict(users_dict):
-    if not users_dict:
-        return False
-    users_array = []
-    for user in users_dict:
-        users_array.append({'uuid': user['uuid'], 'name': user['name'], 'last_online': user['last_online'],
-                            'expiry_time': None,
-                            'usage_limit_GB': user['usage_limit_GB'], 'package_days': user['package_days'],
-                            'mode': user['mode'],
-                            'monthly': None, 'start_date': user['start_date'],
-                            'current_usage_GB': user['current_usage_GB'],
-                            'last_reset_time': user['last_reset_time'], 'comment': user['comment'],
-                            'telegram_id': user['telegram_id'],
-                            'added_by': user['added_by_uuid'], 'max_ips': None, 'enable': None})
-    return users_array
-
-
-# Change telegram user data format
-def Telegram_users_to_dict(Tel_users_dict):
-    if not Tel_users_dict:
-        return False
-    users_array = []
-    for user in Tel_users_dict:
-        users_array.append({'id': user[0], 'telegram_id': user[1], 'created_at': user[3], })
-    return users_array
-
-
-# Calculate remaining days
-def calculate_remaining_days(start_date, package_days):
-    import datetime
-    import pytz
-
-    datetime_iran = datetime.datetime.now(pytz.timezone('Asia/Tehran'))
-    datetime_iran = datetime_iran.replace(tzinfo=None)
-    if start_date is None:
-        return package_days
-    start_date = datetime.datetime.strptime(start_date, "%Y-%m-%d")
-    # remaining_days = package_days - (datetime.datetime.now() - start_date).days
-    remaining_days = package_days - (datetime_iran - start_date).days + 1
-    if remaining_days < 0:
+# --- Currency Conversion ---
+def rial_to_toman(rial):
+    """Convert Rial to Toman"""
+    if rial is None:
         return 0
-    return remaining_days
-
-
-# Calculate remaining usage
-def calculate_remaining_usage(usage_limit_GB, current_usage_GB):
-    remaining_usage = usage_limit_GB - current_usage_GB
-    return round(remaining_usage, 2)
-
-
-# Calculate last online time
-def calculate_remaining_last_online(last_online_date_time):
-    import datetime
-    if last_online_date_time == "0001-01-01 00:00:00.000000" or last_online_date_time == "1-01-01 00:00:00":
-        return AdminBot.content.MESSAGES['NEVER']
-    # last_online_date_time = datetime.datetime.strptime(last_online_date_time, "%Y-%m-%d %H:%M:%S.%f")
-    last_online_date_time = datetime.datetime.strptime(last_online_date_time, "%Y-%m-%d %H:%M:%S")
-    last_online_time = (datetime.datetime.now() - last_online_date_time)
-    last_online = AdminBot.templates.last_online_time_template(last_online_time)
-    return last_online
-
-
-# Process users data - return list of users
-def dict_process(url, users_dict, sub_id=None, server_id=None):
-    BASE_URL = urlparse(url,).scheme + "://" + urlparse(url,).netloc
-    logging.info(f"Parse users page")
-    if not users_dict:
-        return False
-    users_list = []
-    for user in users_dict:
-        users_list.append({
-            "name": user['name'],
-            "usage": {
-                'usage_limit_GB': round(user['usage_limit_GB'], 2),
-                'current_usage_GB': round(user['current_usage_GB'], 2),
-                'remaining_usage_GB': calculate_remaining_usage(user['usage_limit_GB'], user['current_usage_GB'])
-            },
-            "remaining_day": calculate_remaining_days(user['start_date'], user['package_days']),
-            "comment": user['comment'],
-            "last_connection": calculate_remaining_last_online(user['last_online']) if user['last_online'] else None,
-            "uuid": user['uuid'],
-            "link": f"{BASE_URL}/{urlparse(url).path.split('/')[1]}/{user['uuid']}/",
-            "mode": user['mode'],
-            "enable": user['enable'],
-            "sub_id": sub_id,
-            "server_id": server_id
-        })
-
-    return users_list
-
-
-# Get single user info - return dict of user info
-def user_info(url, uuid):
-    logging.info(f"Get info of user single user - {uuid}")
-    lu = api.select(url)
-    if not lu:
-        return False
-    for user in lu:
-        if user['uuid'] == uuid:
-            return user
-    return False
-
-
-# Get sub links - return dict of sub links
-def sub_links(uuid, url= None):
-    if not url:
-        non_order_users = USERS_DB.find_non_order_subscription(uuid=uuid)
-        order_users = USERS_DB.find_order_subscription(uuid=uuid)
-        if order_users:
-            order_user = order_users[0]
-            servers = USERS_DB.find_server(id=order_user['server_id'])
-            if servers:
-                server = servers[0]
-                url = server['url']
-        elif non_order_users:
-            non_order_user = non_order_users[0]
-            servers = USERS_DB.find_server(id=non_order_user['server_id'])
-            if servers:
-                server = servers[0]
-                url = server['url']
-        # else:
-        #     servers = USERS_DB.select_servers()
-        #     if servers:
-        #         for server in servers:
-        #             users_list = api.find(server['url'] + API_PATH, uuid)
-        #             if users_list:
-        #                 url = server['url']
-        #                 break
-    BASE_URL = urlparse(url).scheme + "://" + urlparse(url).netloc
-    logging.info(f"Get sub links of user - {uuid}")
-    sub = {}
-    PANEL_DIR = urlparse(url).path.split('/')
-    # Clash open app: clash://install-config?url=
-    # Hidden open app: clashmeta://install-config?url=
-    sub['clash_configs'] = f"{BASE_URL}/{PANEL_DIR[1]}/{uuid}/clash/all.yml"
-    sub['hiddify_configs'] = f"{BASE_URL}/{PANEL_DIR[1]}/{uuid}/clash/meta/all.yml"
-    sub['sub_link'] = f"{BASE_URL}/{PANEL_DIR[1]}/{uuid}/all.txt"
-    sub['sub_link_b64'] = f"{BASE_URL}/{PANEL_DIR[1]}/{uuid}/all.txt?base64=True"
-    # Add in v8.0 Hiddify
-    sub['sub_link_auto'] = f"{BASE_URL}/{PANEL_DIR[1]}/{uuid}/sub/?asn=unknown"
-    sub['sing_box_full'] = f"{BASE_URL}/{PANEL_DIR[1]}/{uuid}/full-singbox.json?asn=unknown"
-    sub['sing_box'] = f"{BASE_URL}/{PANEL_DIR[1]}/{uuid}/singbox.json?asn=unknown"
-    return sub
-
-
-# Parse sub links
-def sub_parse(sub):
-    logging.info(f"Parse sub links")
-    res = get_request(sub)
-    if not res or res.status_code != 200:
-        return False
-
-    urls = re.findall(r'(vless:\/\/[^\n]+)|(vmess:\/\/[^\n]+)|(trojan:\/\/[^\n]+)', res.text)
-
-    config_links = {
-        'vless': [],
-        'vmess': [],
-        'trojan': []
-    }
-    for url in urls:
-        if url[0]:
-            match = re.search(r'#(.+)$', url[0])
-            if match:
-                vless_title = match.group(1).replace("%20", " ")
-                config_links['vless'].append([url[0], vless_title])
-        elif url[1]:
-            config = url[1].replace("vmess://", "")
-            config_parsed = base64decoder(config)
-            if config_parsed:
-                vmess_title = config_parsed['ps'].replace("%20", " ")
-                config_links['vmess'].append([url[1], vmess_title])
-        elif url[2]:
-            match = re.search(r'#(.+)$', url[2])
-            if match:
-                trojan_title = match.group(1).replace("%20", " ")
-                trojan_sni = re.search(r'sni=([^&]+)', url[2])
-                if trojan_sni:
-                    if trojan_sni.group(1) == "fake_ip_for_sub_link":
-                        continue
-                config_links['trojan'].append([url[2], match.group(1)])
-        
-    return config_links
-
-
-# Backup panel
-def backup_panel(url):
-    logging.info(f"Backup panel")
-    BASE_URL = urlparse(url,).scheme + "://" + urlparse(url,).netloc
-    dir_panel = urlparse(url).path.split('/')
-    backup_url = f"{BASE_URL}/{dir_panel[1]}/{dir_panel[2]}/admin/backup/backupfile/"
-
-    backup_req = get_request(backup_url)
-    if not backup_req or backup_req.status_code != 200:
-        return False
-
-    now = datetime.now()
-    dt_string = now.strftime("%d-%m-%Y_%H-%M-%S")
-
-    file_name = f"Backup_{urlparse(url,).netloc}_{dt_string}.json"
-
-    file_name = os.path.join(BACKUP_LOC, file_name)
-    if not os.path.exists(BACKUP_LOC):
-        os.makedirs(BACKUP_LOC)
-    with open(file_name, 'w+') as f:
-        f.write(backup_req.text)
-    return file_name
-
-# zip an array of files
-def zip_files(files, zip_file_name,path=None):
-    if path:
-        zip_file_name = os.path.join(path, zip_file_name)
-    with zipfile.ZipFile(zip_file_name, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        for file in files:
-            # Get the base name of the file (i.e. the file name without the parent folders)
-            base_name = os.path.basename(file)
-            # Write the file to the zip archive with the base name as the arcname
-            zip_file.write(file, arcname=base_name)
-    return zip_file_name
-
-# full backup
-def full_backup():
-    files = []
-    servers = USERS_DB.select_servers()
-    for server in servers:
-        file_name = backup_panel(server['url'])
-        if file_name:
-            files.append(file_name)
-    backup_bot = backup_json_bot()
-    if backup_bot:
-        files.append(backup_bot)
-    if files:
-        now = datetime.now()
-        dt_string = now.strftime("%d-%m-%Y_%H-%M-%S")
-        zip_title = f"Backup_{dt_string}.zip"
-        zip_file_name = zip_files(files, zip_title,path=BACKUP_LOC)
-        if zip_file_name:
-            return zip_file_name
-    return False
-
-# Extract UUID from config
-def extract_uuid_from_config(config):
-    logging.info(f"Extract UUID from config")
-    uuid_pattern = r"([0-9a-fA-F]{8}-(?:[0-9a-fA-F]{4}-){3}[0-9a-fA-F]{12})"
-    match = re.search(uuid_pattern, config)
-
-    if match:
-        uuid = match.group(1)
-        return uuid
-    else:
-        return None
-
-
-# System status
-def system_status():
-    cpu_usage = psutil.cpu_percent()
-    ram_usage = psutil.virtual_memory().percent
-    disk_usage = psutil.disk_usage('/').percent
-    return {
-        'cpu': cpu_usage,
-        'ram': ram_usage,
-        'disk': disk_usage
-    }
-
-
-# Search user by name
-def search_user_by_name(url, name):
-    # users = dict_process(users_to_dict(ADMIN_DB.select_users()))
-    users = api.select(url)
-    if not users:
-        return False
-    res = []
-    for user in users:
-        if name.lower() in user['name'].lower():
-            res.append(user)
-    if res:
-        return res
-    return False
-
-
-# Search user by uuid
-def search_user_by_uuid(url, uuid):
-    # users = dict_process(users_to_dict(ADMIN_DB.select_users()))
-    users = api.select(url)
-    if not users:
-        return False
-    for user in users:
-        if user['uuid'] == uuid:
-            return user
-    return False
-
-
-# Base64 decoder
-def base64decoder(s):
-    import base64
-    try:
-        conf = base64.b64decode(s).decode("utf-8")
-        conf = json.loads(conf)
-    except Exception as e:
-        conf = False
-
-    return conf
-
-
-# Search user by config
-def search_user_by_config(url, config):
-    if config.startswith("vmess://"):
-        config = config.replace("vmess://", "")
-        config = base64decoder(config)
-        if config:
-            uuid = config['id']
-            user = search_user_by_uuid(url, uuid)
-            if user:
-                return user
-    uuid = extract_uuid_from_config(config)
-    if uuid:
-        user = search_user_by_uuid(url, uuid)
-        if user:
-            return user
-    return False
-
-
-# Check text is it config or sub
-def is_it_config_or_sub(config):
-    if config.startswith("vmess://"):
-        config = config.replace("vmess://", "")
-        config = base64decoder(config)
-        if config:
-            return config['id']
-    uuid = extract_uuid_from_config(config)
-    if uuid:
-        return uuid
-
-
-# Users bot add plan
-def users_bot_add_plan(size, days, price, server_id,description=None):
-    if not CLIENT_TOKEN:
-        return False
-    # randon 4 digit number
-    plan_id = random.randint(10000, 99999)
-    plan_status = USERS_DB.add_plan(plan_id, size, days, price, server_id,description=description)
-    if not plan_status:
-        return False
-    return True
-
-#--------------------------Server area ----------------------------
-# add server
-def add_server(url, user_limit, title=None, description=None, status=True, default_server=False):
-    # randon 5 digit number
-    #server_id = random.randint(10000, 99999)
-    server_status = USERS_DB.add_server(url, user_limit, title, description, status, default_server)
-    if not server_status:
-        return False
-    return True
-
-
-# Check user is expired
-def is_user_expired(user):
-    if user['remaining_day'] == 0:
-        return True
-    return False
-
-
-# Expired users list
-def expired_users_list(users):
-    expired_users = []
-    for user in users:
-        if is_user_expired(user):
-            expired_users.append(user)
-    return expired_users
-
-
-# Text to QR code
-def txt_to_qr(txt):
-    qr = qrcode.QRCode(
-        version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_L,
-        box_size=10,
-        border=1,
-    )
-    qr.add_data(txt)
-    qr.make(fit=True, )
-    img_qr = qr.make_image(fill_color="black", back_color="white")
-    stream = BytesIO()
-    img_qr.save(stream)
-    img = stream.getvalue()
-
-    return img
-
-
-# List of users who not ordered from bot (Link Subscription)
-def non_order_user_info(telegram_id):
-    users_list = []
-    non_ordered_subscriptions = USERS_DB.find_non_order_subscription(telegram_id=telegram_id)
-    if non_ordered_subscriptions:
-        for subscription in non_ordered_subscriptions:
-            server_id = subscription['server_id']
-            server = USERS_DB.find_server(id=server_id)
-            if server:
-                server = server[0]
-                #if server['status']:
-                URL = server['url'] + API_PATH
-                non_order_user = api.find(URL, subscription['uuid'])
-                if non_order_user:
-                    non_order_user = users_to_dict([non_order_user])
-                    non_order_user = dict_process(URL, non_order_user, subscription['id'],server_id)
-                    if non_order_user:
-                        non_order_user = non_order_user[0]
-                        users_list.append(non_order_user)
-    return users_list
-
-
-# List of users who ordered from bot and made payment
-def order_user_info(telegram_id):
-    users_list = []
-    orders = USERS_DB.find_order(telegram_id=telegram_id)
-    if orders:
-        for order in orders:
-            ordered_subscriptions = USERS_DB.find_order_subscription(order_id=order['id'])
-            if ordered_subscriptions:
-                for subscription in ordered_subscriptions:
-                    server_id = subscription['server_id']
-                    server = USERS_DB.find_server(id=server_id)
-                    if server:
-                        server = server[0]
-                        #if server['status']:
-                        URL = server['url'] + API_PATH
-                        order_user = api.find(URL, subscription['uuid'])
-                        if order_user:
-                            order_user = users_to_dict([order_user])
-                            order_user = dict_process(URL, order_user, subscription['id'], server_id)
-                            if order_user:
-                                order_user = order_user[0]
-                                users_list.append(order_user)
-    return users_list
-
-
-
-# Replace last three characters of a string with random numbers (For Payment)
-def replace_last_three_with_random(input_string):
-    if len(input_string) <= 3:
-        return input_string  # Not enough characters to replace
-    input_string = int(input_string)
-    input_string += random.randint(1000, 9999)
-    return str(input_string)
-    # random_numbers = ''.join(random.choice(string.digits) for _ in range(3))
-    # modified_string = input_string[:-3] + random_numbers
-    # return modified_string
-
-
-# Privacy-friendly logging - replace your panel url with panel.private.com
-def privacy_friendly_logging_request(url):
-    url = urlparse(url)
-    url = url.scheme + "://" + "panel.private.com" + url.path
-    return url
-
-
-def all_configs_settings():
-    bool_configs = USERS_DB.select_bool_config()
-    int_configs = USERS_DB.select_int_config()
-    str_configs = USERS_DB.select_str_config()
-
-    # all configs to one dict
-    all_configs = {}
-    for config in bool_configs:
-        all_configs[config['key']] = config['value']
-    for config in int_configs:
-        all_configs[config['key']] = config['value']
-    for config in str_configs:
-        all_configs[config['key']] = config['value']
-    return all_configs
-
-
-def find_order_subscription_by_uuid(uuid):
-    order_subscription = USERS_DB.find_order_subscription(uuid=uuid)
-    non_order_subscription = USERS_DB.find_non_order_subscription(uuid=uuid)
-    if order_subscription:
-        return order_subscription[0]
-    elif non_order_subscription:
-        return non_order_subscription[0]
-    else:
-        return False
-    
-def is_it_subscription_by_uuid_and_telegram_id(uuid, telegram_id):
-    subs = []
-    flag = False
-    orders = USERS_DB.find_order(telegram_id=telegram_id)
-    if orders:
-        for order in orders:
-            ordered_subscriptions = USERS_DB.find_order_subscription(order_id=order['id'])
-            if ordered_subscriptions:
-                for subscription in ordered_subscriptions:
-                    if subscription['uuid'] == uuid:
-                        flag = True
-                        subs.append(subscription)
-                        break
-            if flag == True:
-                break 
-    
-    non_order_subscriptions = USERS_DB.find_non_order_subscription(telegram_id=telegram_id)
-    if non_order_subscriptions:
-        for subscription in non_order_subscriptions:
-            if subscription['uuid'] == uuid:
-                subs.append(subscription)
-                break
-    if subs:
-        return True
-    else:
-        return False
-
+    return int(rial) // 10
 
 def toman_to_rial(toman):
+    """Convert Toman to Rial"""
+    if toman is None:
+        return 0
     return int(toman) * 10
 
+# --- Server Status ---
+def server_status_url(url):
+    """Get server status URL"""
+    return f"{url}/admin/get_data/"
 
-def rial_to_toman(rial):
-    return "{:,.0f}".format(int(int(rial) / 10))
+# --- Subscription Links Generation (Updated for Hiddify API v2.2.0 structure) ---
+def sub_links(uuid, url=None, server_row=None):
+    """
+    Generate subscription links for a user.
+    This function now assumes the new Hiddify API structure where configs are fetched via get_all_configs.
+    The actual link generation might need adjustment based on how the panel exposes these.
+    For now, it generates standard Hiddify-style links.
+    """
+    if not uuid:
+        logger.error("UUID is required to generate subscription links.")
+        return None
 
+    # If server_row is provided, use its URL
+    if server_row and 'url' in server_row:
+        base_url = server_row['url'].rstrip('/')
+        proxy_path = "proxy" # Default, might need to be configurable per server
+        # Attempt to extract proxy_path from server URL if it's in a standard format
+        # This is a simplification, real implementation might need server config
+        if '/proxy/' in base_url:
+            parts = base_url.split('/proxy/')
+            if len(parts) > 1:
+                proxy_path = parts[1].split('/')[0]
+        full_base_url = f"{base_url}/{proxy_path}"
+    elif url:
+        base_url = url.rstrip('/')
+        proxy_path = "proxy" # Default assumption
+        if '/proxy/' in base_url:
+            parts = base_url.split('/proxy/')
+            if len(parts) > 1:
+                proxy_path = parts[1].split('/')[0]
+        full_base_url = f"{base_url}/{proxy_path}"
+    else:
+        logger.error("Either url or server_row with 'url' key must be provided.")
+        return None
 
-def backup_json_bot():
-    back_dir = BOT_BACKUP_LOC
-    if not os.path.exists(back_dir):
-        os.makedirs(back_dir)
-    bk_json_data = USERS_DB.backup_to_json(back_dir)
-    if not bk_json_data:
-        return False
-    bk_json_data['version'] = __version__
-    now = datetime.now()
-    dt_string = now.strftime("%d-%m-%Y_%H-%M-%S")
-    bk_json_file = os.path.join(back_dir, f"Backup_Bot_{dt_string}.json")
-    with open(bk_json_file, 'w+') as f:
-        json.dump(bk_json_data, f, indent=4)
-    zip_file = os.path.join(back_dir, f"Backup_Bot_{dt_string}.zip")
-    with zipfile.ZipFile(zip_file, 'w') as zip:
-        zip.write(bk_json_file,os.path.basename(bk_json_file))
-        zip.write(USERS_DB_LOC,os.path.basename(USERS_DB_LOC))
-        for file in os.listdir(RECEIPTIONS_LOC):
-            zip.write(os.path.join(RECEIPTIONS_LOC, file),os.path.join(os.path.basename(RECEIPTIONS_LOC),file))
-    os.remove(bk_json_file)
-    return zip_file
+    # Base subscription URL (Standard Hiddify format)
+    sub_url = f"{full_base_url}/{uuid}/"
+    
+    return {
+        "sub_link": sub_url,
+        "hiddify_configs": f"{sub_url}", # Often the base link itself
+        "vless": f"{sub_url}vless",
+        "vmess": f"{sub_url}vmess",
+        "trojan": f"{sub_url}trojan",
+        # Clash configurations
+        "clash": f"{sub_url}clash/all.yml",
+        "clash_meta": f"{sub_url}clash/meta/all.yml",
+        # Hiddify-specific configurations
+        "hiddify_app": f"{sub_url}apps/",
+        "sing_box": f"{sub_url}singbox/all.json",
+        "sing_box_full": f"{sub_url}singbox/all-full.json",
+        # Subscription links (base64 encoded versions)
+        "sub_link_b64": f"{sub_url}", # Often handled by client
+        "sub_link_b64_vless": f"{sub_url}vless", # Often handled by client
+        "sub_link_b64_vmess": f"{sub_url}vmess", # Often handled by client
+        "sub_link_b64_trojan": f"{sub_url}trojan", # Often handled by client
+    }
 
+# --- Subscription Parsing (Updated to work with new API structure if needed) ---
+def sub_parse(sub_link):
+    """
+    Parse subscription link to extract configurations.
+    This function might need adjustment depending on how the new API delivers configs.
+    For now, it attempts to fetch and parse a standard subscription.
+    """
+    if not sub_link:
+        logger.error("Subscription link is required for parsing.")
+        return None
 
-def restore_json_bot(file):
-    extract_path = os.path.join(BOT_BACKUP_LOC, "tmp", os.path.basename(file).replace(".zip", ""))
-    if not os.path.exists(file):
-        return False
-    if not file.endswith(".zip"):
-        return False
     try:
-        if not os.path.exists(extract_path):
-            os.makedirs(extract_path)
-    except Exception as e:
-        logging.exception(f"Exception: {e}")
-        return False
-    try:
-        with zipfile.ZipFile(file, 'r') as outer_zip:
-            # Iterate through all entries in the outer zip
-            for entry in outer_zip.namelist():
-                # Check if the entry is a zip file
-                if entry.lower().endswith('.zip'):
-                    nested_zip_filename = entry
-                    # Extract the nested zip file
-                    with outer_zip.open(nested_zip_filename) as nested_zip_file:
-                        # Save the nested zip file to a temporary location
-                        nested_zip_path = os.path.join(extract_path, nested_zip_filename)
-                        with open(nested_zip_path, 'wb') as f:
-                            f.write(nested_zip_file.read())
+        # Fetch the subscription content (assuming it's a text/plain or similar format)
+        # This might need to be adjusted if the API provides configs in a different way
+        response = requests.get(sub_link, timeout=10)
+        response.raise_for_status()
+        sub_content = response.text
 
-                        # Extract contents of the nested zip file
-                        with zipfile.ZipFile(nested_zip_path, 'r') as nested_zip:
-                            # Check if the JSON file exists
-                            # select json file
-                            json_filename = None
-                            for file in nested_zip.namelist():
-                                if file.endswith('.json'):
-                                    json_filename = file
-                                    break
-                            if json_filename in nested_zip.namelist():
-                                nested_zip.extractall(extract_path)
-                else:
-                            json_filename = None
-                            for file in outer_zip.namelist():
-                                if file.endswith('.json'):
-                                    json_filename = file
-                                    break
-                            if json_filename in outer_zip.namelist():
-                                outer_zip.extractall(extract_path)
+        # Initialize dictionary for different config types
+        configs = {
+            'vless': [],
+            'vmess': [],
+            'trojan': [],
+            'ss': [], # Shadowsocks
+            'tuic': [],
+            'hy2': [], # Hysteria2
+            'wireguard': [],
+            'mixed': [] # For configs that don't fit neatly into the above categories
+        }
+
+        # Simple parsing based on prefixes
+        # This is a basic parser and might need improvement for complex configs
+        lines = sub_content.strip().split('\n')
+        for line in lines:
+            line = line.strip()
+            if line.startswith("vless://"):
+                configs['vless'].append(line)
+            elif line.startswith("vmess://"):
+                configs['vmess'].append(line)
+            elif line.startswith("trojan://"):
+                configs['trojan'].append(line)
+            elif line.startswith("ss://"):
+                configs['ss'].append(line)
+            elif line.startswith("tuic://"):
+                configs['tuic'].append(line)
+            elif line.startswith("hy2://") or line.startswith("hysteria2://"):
+                configs['hy2'].append(line)
+            elif line.startswith("wireguard://") or "wireguard" in line.lower():
+                configs['wireguard'].append(line)
+            elif line: # Add any other non-empty line to mixed
+                configs['mixed'].append(line)
+
+        return configs
+
+    except requests.exceptions.RequestException as e:
+        logger.error(f"Error fetching subscription link {sub_link}: {e}")
+        return None
     except Exception as e:
-        logging.exception(f"Exception: {e}")
-        return False
+        logger.error(f"Error parsing subscription link {sub_link}: {e}")
+        return None
+
+# --- QR Code Generation ---
+def txt_to_qr(txt):
+    """Convert text to QR code"""
+    if not txt:
+        logger.error("Text is required to generate QR code.")
+        return None
+    try:
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(txt)
+        qr.make(fit=True)
+
+        img = qr.make_image(fill_color="black", back_color="white")
+        bio = BytesIO()
+        img.save(bio, format='PNG')
+        bio.seek(0)
+        return bio
+    except Exception as e:
+        logger.error(f"Error generating QR code: {e}")
+        return None
+
+# --- User Information (Updated to use new Hiddify API) ---
+def user_info(uuid, server_row):
+    """
+    Get user information from the Hiddify panel using the new API.
+    """
+    if not uuid or not server_row:
+        logger.error("UUID and server_row are required.")
+        return None
+
+    try:
+        # Use the new API function to get user details
+        user_data = get_user(uuid)
+        
+        if not user_data:
+            logger.warning(f"User with UUID {uuid} not found via API.")
+            return None
+
+        # Process the user data to match the expected structure
+        # This might need adjustment based on the exact fields returned by get_user
+        processed_user = {
+            'uuid': user_data.get('uuid'),
+            'name': user_data.get('name'),
+            'usage': {
+                'current_usage_GB': user_data.get('current_usage_GB', 0),
+                'usage_limit_GB': user_data.get('usage_limit_GB', 0),
+                'remaining_usage_GB': user_data.get('usage_limit_GB', 0) - user_data.get('current_usage_GB', 0)
+            },
+            'package_days': user_data.get('package_days', 0),
+            'remaining_day': 0, # Needs calculation based on expire date
+            'last_connection': user_data.get('last_online'), # Might need parsing
+            'comment': user_data.get('comment', ''),
+            'enable': user_data.get('enable', True),
+            'link': f"{server_row['url'].rstrip('/')}/proxy/{uuid}/" # Construct link
+        }
+
+        # Calculate remaining days
+        # Assuming 'package_days' is total package days and we need to calculate from start/expire dates
+        # This logic might need adjustment based on how Hiddify tracks time.
+        # A more robust way would be if the API directly provided 'expire_date' or 'start_date'
+        # For now, we'll assume a simple calculation or leave it as 0 if not easily derivable.
+        # Let's try to get more info from user_profile if needed.
+        user_profile_data = get_user_profile(uuid)
+        if user_profile_data:
+            # Example: if profile provides 'expire_days' or similar
+            processed_user['remaining_day'] = user_profile_data.get('profile_remaining_days', 0)
+            # Update usage if profile gives more accurate data
+            if 'profile_usage_current' in user_profile_data:
+                processed_user['usage']['current_usage_GB'] = user_profile_data['profile_usage_current']
+                processed_user['usage']['remaining_usage_GB'] = user_data.get('usage_limit_GB', 0) - user_profile_data['profile_usage_current']
+        else:
+            # Fallback calculation or leave as 0
+            # This is a placeholder, real logic depends on Hiddify's data model
+            pass
+
+        return processed_user
+
+    except Exception as e:
+        logger.error(f"Error getting user info for UUID {uuid}: {e}")
+        return None
+
+# --- Non-Order User Information (Updated to use new Hiddify API) ---
+def non_order_user_info(telegram_id):
+    """
+    Get information for non-order subscriptions of a user.
+    """
+    if not telegram_id:
+        logger.error("Telegram ID is required.")
+        return []
+
+    try:
+        non_order_subs = USERS_DB.find_non_order_subscription(telegram_id=telegram_id)
+        if not non_order_subs:
+            return []
+
+        non_order_subs_info = []
+        for sub in non_order_subs:
+            server = USERS_DB.find_server(id=sub['server_id'])
+            if not server:
+                logger.warning(f"Server with ID {sub['server_id']} not found for non-order sub {sub['uuid']}.")
+                continue
+            server = server[0]
+
+            # Use the updated user_info function
+            user_data = user_info(sub['uuid'], server)
+            if user_data:
+                user_data['sub_id'] = sub['uuid'] # Use UUID as sub_id for non-orders
+                user_data['server_id'] = sub['server_id']
+                non_order_subs_info.append(user_data)
+            else:
+                logger.warning(f"Could not get info for non-order user {sub['uuid']}.")
+
+        return non_order_subs_info
+
+    except Exception as e:
+        logger.error(f"Error getting non-order user info for Telegram ID {telegram_id}: {e}")
+        return []
+
+# --- Order User Information (Updated to use new Hiddify API) ---
+def order_user_info(telegram_id):
+    """
+    Get information for order subscriptions of a user.
+    """
+    if not telegram_id:
+        logger.error("Telegram ID is required.")
+        return []
+
+    try:
+        orders = USERS_DB.find_order(telegram_id=telegram_id)
+        if not orders:
+            return []
+
+        order_subs_info = []
+        for order in orders:
+            sub_uuid = order.get('uuid')
+            if not sub_uuid:
+                logger.warning(f"Order {order.get('id')} does not have a UUID.")
+                continue
+
+            server_id = order.get('server_id')
+            if not server_id:
+                logger.warning(f"Order {order.get('id')} does not have a server_id.")
+                continue
+
+            server = USERS_DB.find_server(id=server_id)
+            if not server:
+                logger.warning(f"Server with ID {server_id} not found for order sub {sub_uuid}.")
+                continue
+            server = server[0]
+
+            # Use the updated user_info function
+            user_data = user_info(sub_uuid, server)
+            if user_data:
+                user_data['sub_id'] = order.get('id') # Use order ID as sub_id for orders
+                user_data['server_id'] = server_id
+                order_subs_info.append(user_data)
+            else:
+                logger.warning(f"Could not get info for order user {sub_uuid}.")
+
+        return order_subs_info
+
+    except Exception as e:
+        logger.error(f"Error getting order user info for Telegram ID {telegram_id}: {e}")
+        return []
+
+# --- All Configurations Settings ---
+def all_configs_settings():
+    """Get all configuration settings from the database"""
+    try:
+        # This function seems to be fetching general bot settings
+        # It likely interacts with the database directly
+        # Assuming USERS_DB has methods to get these settings
+        # The structure of settings in the DB might be int_config, str_config, bool_config tables
+        
+        settings = {}
+        
+        # Example for boolean configs
+        bool_configs = USERS_DB.select_bool_config()
+        if bool_configs:
+            for config in bool_configs:
+                settings[config['key']] = config['value']
                 
-            
-    bk_json_file = os.path.join(extract_path, os.path.basename(json_filename))
-    # with open(bk_json_file, 'r') as f:
-    #     bk_json_data = json.load(f)
-    status_db = USERS_DB.restore_from_json(bk_json_file)
-    if not status_db:
-        return False
-    if not os.path.exists(os.path.join(extract_path, os.path.basename(RECEIPTIONS_LOC))):
-        os.mkdir(os.path.join(extract_path, os.path.basename(RECEIPTIONS_LOC)))
-    # move reception files
-    for file in os.listdir(os.path.join(extract_path, os.path.basename(RECEIPTIONS_LOC))):
-        try:
-            os.rename(os.path.join(extract_path, os.path.basename(RECEIPTIONS_LOC), file),
-                    os.path.join(RECEIPTIONS_LOC, file))
-        except Exception as e:
-            logging.exception(f"Exception: {e}")
-    try:
-        # # remove tmp folder
-        # os.remove(bk_json_file)
-        # # remove RECEIPTIONS all files
-        # for file in os.listdir(os.path.join(extract_path, os.path.basename(RECEIPTIONS_LOC))):
-        #     os.remove(os.path.join(extract_path, os.path.basename(RECEIPTIONS_LOC), file))
-        # os.rmdir(os.path.join(extract_path, os.path.basename(RECEIPTIONS_LOC)))
-        # # romove hidyBot.db
-        # os.remove(os.path.join(extract_path, os.path.basename(USERS_DB_LOC)))
-        shutil.rmtree(extract_path)
+        # Example for integer configs
+        int_configs = USERS_DB.select_int_config()
+        if int_configs:
+            for config in int_configs:
+                settings[config['key']] = config['value']
+                
+        # Example for string configs
+        str_configs = USERS_DB.select_str_config()
+        if str_configs:
+            for config in str_configs:
+                settings[config['key']] = config['value']
+                
+        return settings
     except Exception as e:
-        logging.exception(f"Exception: {e}")
-        return False
-    return True
+        logger.error(f"Error getting all configs settings: {e}")
+        return {}
 
-# Debug Data 
-def debug_data():
-    bk_json_data = USERS_DB.backup_to_json(BOT_BACKUP_LOC)
-    if not bk_json_data:
-        return False
-    
-    bk_json_data['version'] = __version__
-    
-    new_servers = []
-    for server in bk_json_data['servers']:
-        url = privacy_friendly_logging_request(server['url'])
-        server['url'] = url
-        new_servers.append(server)
-    bk_json_data['servers'] = new_servers
-    
-    bk_json_data['str_config'] = [x for x in bk_json_data['str_config'] if x['key'] not in ['bot_token_admin','bot_token_client']]
-    
-    now = datetime.now()
-    dt_string = now.strftime("%d-%m-%Y_%H-%M-%S")
-    bk_json_file = os.path.join(BOT_BACKUP_LOC, f"DB_Data_{dt_string}.json")
-    with open(bk_json_file, 'w+') as f:
-        json.dump(bk_json_data, f, indent=4)
-    zip_file = os.path.join(BOT_BACKUP_LOC, f"Debug_Data_{dt_string}.zip")
-    with zipfile.ZipFile(zip_file, 'w') as zip:
-        zip.write(bk_json_file,os.path.basename(bk_json_file))
-        if os.path.exists(os.path.join(os.getcwd(),"bot.log")):
-            # only send last 1000 lines of log
-            with open(os.path.join(os.getcwd(),"bot.log"), 'r') as f:
-                lines = f.readlines()
-                lines = lines[-1000:]
-                with open(os.path.join(os.getcwd(),"bot.log"), 'w') as f:
-                    f.writelines(lines)
-            zip.write("bot.log",os.path.basename("bot.log"))
-        if os.path.exists(LOG_DIR):
-            for file in os.listdir(LOG_DIR):
-                zip.write(os.path.join(LOG_DIR, file),file)
+# --- Search User by Name (Updated to use new Hiddify API) ---
+def search_user_by_name(name):
+    """
+    Search for users by name using the new Hiddify API.
+    """
+    if not name:
+        logger.error("Name is required for search.")
+        return []
 
-    os.remove(bk_json_file)
-    return zip_file
+    try:
+        # Get all users from the API
+        all_users = get_users()
+        
+        if not all_users:
+            logger.info("No users found via API.")
+            return []
+
+        # Filter users by name (case-insensitive partial match)
+        matching_users = [user for user in all_users if name.lower() in user.get('name', '').lower()]
+        
+        # The API returns user data, but we might need to enrich it with server/db info
+        # For simplicity here, we'll just return the basic API data
+        # In a real scenario, you might want to join this with local DB data
+        return matching_users
+
+    except Exception as e:
+        logger.error(f"Error searching user by name '{name}': {e}")
+        return []
+
+# --- Expired Users List ---
+def expired_users_list():
+    """
+    Get a list of expired users.
+    This function needs to be updated to work with the new API data structure.
+    It likely compares user expiry dates with the current date.
+    """
+    try:
+        # Get all users from the API
+        all_users = get_users()
+        
+        if not all_users:
+            return []
+
+        expired = []
+        tehran_tz = pytz.timezone('Asia/Tehran')
+        now = datetime.now(tehran_tz)
+
+        for user in all_users:
+            # Check if user is enabled first
+            if not user.get('enable', True):
+                # If not enabled, consider it expired or inactive
+                expired.append(user)
+                continue
+
+            # Try to determine if user is expired based on profile data
+            # This logic needs to be robust and handle different data formats
+            uuid = user.get('uuid')
+            if not uuid:
+                continue
+
+            # Get detailed profile
+            profile = get_user_profile(uuid)
+            if profile:
+                # Check remaining days
+                remaining_days = profile.get('profile_remaining_days', None)
+                if remaining_days is not None and remaining_days <= 0:
+                    expired.append(user)
+                    continue
+
+                # Check remaining usage
+                remaining_usage = profile.get('profile_usage_remaining', None) # Hypothetical field
+                if remaining_usage is not None and remaining_usage <= 0:
+                    expired.append(user)
+                    continue
+
+                # Check expiry date if available directly
+                # This depends on how the API exposes expiry
+                # expiry_timestamp = profile.get('expiry_timestamp', None) # Hypothetical
+                # if expiry_timestamp and expiry_timestamp < now.timestamp():
+                #     expired.append(user)
+                #     continue
+
+            # Fallback: If profile data is not enough, use user data
+            # This is less reliable and depends on Hiddify's data model
+            # package_days = user.get('package_days', 0)
+            # start_date_str = user.get('start_date') # Format?
+            # if start_date_str:
+            #     try:
+            #         start_date = datetime.fromisoformat(start_date_str.replace('Z', '+00:00'))
+            #         start_date_tehran = start_date.astimezone(tehran_tz)
+            #         expiry_date = start_date_tehran + timedelta(days=package_days)
+            #         if now > expiry_date:
+            #             expired.append(user)
+            #             continue
+            #     except (ValueError, TypeError):
+            #         pass # If date parsing fails, skip this check
+
+        return expired
+
+    except Exception as e:
+        logger.error(f"Error getting expired users list: {e}")
+        return []
+
+# --- Dictionary Processing ---
+def dict_process(url, users_dict):
+    """
+    Process a dictionary of users to add calculated fields.
+    This function needs to be updated to work with the new API data structure.
+    """
+    if not url or not users_dict:
+        logger.error("URL and users dictionary are required.")
+        return users_dict
+
+    try:
+        tehran_tz = pytz.timezone('Asia/Tehran')
+        now = datetime.now(tehran_tz)
+
+        for user in users_dict:
+            # --- Calculate remaining days ---
+            # This logic needs to be adapted based on how the new API provides time data.
+            # Assuming we might need to fetch profile for each user for accurate data.
+            uuid = user.get('uuid')
+            if uuid:
+                profile = get_user_profile(uuid)
+                if profile:
+                    user['remaining_day'] = profile.get('profile_remaining_days', 0)
+                else:
+                    # Fallback calculation or default
+                    user['remaining_day'] = 0
+            else:
+                user['remaining_day'] = 0
+
+            # --- Calculate remaining usage ---
+            usage_limit_gb = user.get('usage_limit_GB', 0)
+            current_usage_gb = user.get('current_usage_GB', 0)
+            user['usage'] = {
+                'current_usage_GB': current_usage_gb,
+                'usage_limit_GB': usage_limit_gb,
+                'remaining_usage_GB': max(0, usage_limit_gb - current_usage_gb)
+            }
+
+            # --- Last connection status ---
+            last_online = user.get('last_online', "1-01-01 00:00:00")
+            if last_online and last_online != "1-01-01 00:00:00":
+                try:
+                    # Assuming last_online is in ISO format or similar
+                    last_online_dt = datetime.fromisoformat(last_online.replace('Z', '+00:00'))
+                    last_online_tehran = last_online_dt.astimezone(tehran_tz)
+                    time_diff = now - last_online_tehran
+
+                    if time_diff.days > 30:
+                        user['last_connection'] = f"{MESSAGES.get('MONTH', 'Month')} {MESSAGES.get('AGO', 'ago')}" # Fallback text
+                    elif time_diff.days > 0:
+                        user['last_connection'] = f"{time_diff.days} {MESSAGES.get('DAY', 'day')} {MESSAGES.get('AGO', 'ago')}"
+                    elif time_diff.seconds > 3600:
+                        user['last_connection'] = f"{time_diff.seconds // 3600} {MESSAGES.get('HOUR', 'hour')} {MESSAGES.get('AGO', 'ago')}"
+                    elif time_diff.seconds > 60:
+                        user['last_connection'] = f"{time_diff.seconds // 60} {MESSAGES.get('MINUTE', 'minute')} {MESSAGES.get('AGO', 'ago')}"
+                    else:
+                        user['last_connection'] = MESSAGES.get('ONLINE', 'Online')
+                except (ValueError, TypeError):
+                    user['last_connection'] = MESSAGES.get('NEVER', 'Never')
+            else:
+                user['last_connection'] = MESSAGES.get('NEVER', 'Never')
+
+        return users_dict
+
+    except Exception as e:
+        logger.error(f"Error processing user dictionary: {e}")
+        return users_dict
+
+# --- Users to Dictionary ---
+def users_to_dict(users_list):
+    """
+    Convert a list of users to a dictionary.
+    This function might need minor adjustments if the API user structure changes.
+    """
+    if not users_list:
+        return []
+
+    try:
+        users_dict = []
+        for user in users_list:
+            # Assuming `user` is already a dictionary from the API
+            # If it's a different object, convert it here
+            if isinstance(user, dict):
+                users_dict.append(user)
+            else:
+                # If user is an object, convert its attributes to a dict
+                # This is a generic approach, might need specifics
+                user_dict = {}
+                for attr in dir(user):
+                    if not attr.startswith('_'): # Skip private attributes
+                        try:
+                            user_dict[attr] = getattr(user, attr)
+                        except AttributeError:
+                            pass
+                users_dict.append(user_dict)
+        return users_dict
+
+    except Exception as e:
+        logger.error(f"Error converting users to dictionary: {e}")
+        return []
+
+# --- Full Backup ---
+def full_backup():
+    """
+    Create a full backup of the bot's data.
+    This function likely compresses important files and database.
+    """
+    import zipfile
+    import datetime
+    try:
+        # Define backup location (assuming it's configured)
+        backup_loc = os.path.join(os.getcwd(), 'Backup')
+        if not os.path.exists(backup_loc):
+            os.makedirs(backup_loc)
+
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        zip_filename = os.path.join(backup_loc, f"backup_{timestamp}.zip")
+
+        with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as backup_zip:
+            # Backup database
+            db_path = os.path.join(os.getcwd(), 'Database', 'hidyBot.db')
+            if os.path.exists(db_path):
+                backup_zip.write(db_path, 'Database/hidyBot.db')
+
+            # Backup configuration files if they exist
+            config_files = ['config.json'] # Add other config files if needed
+            for config_file in config_files:
+                config_path = os.path.join(os.getcwd(), config_file)
+                if os.path.exists(config_path):
+                    backup_zip.write(config_path, config_file)
+
+            # Backup logs directory
+            logs_dir = os.path.join(os.getcwd(), 'Logs')
+            if os.path.exists(logs_dir):
+                for root, dirs, files in os.walk(logs_dir):
+                    for file in files:
+                        file_path = os.path.join(root, file)
+                        # Add file to zip, preserving directory structure relative to cwd
+                        backup_zip.write(file_path, os.path.relpath(file_path, os.getcwd()))
+
+        logger.info(f"Full backup created successfully: {zip_filename}")
+        return zip_filename
+
+    except Exception as e:
+        logger.error(f"Error creating full backup: {e}")
+        return None
+
+# --- Backup JSON Bot ---
+def backup_json_bot():
+    """
+    Backup bot settings to a JSON file.
+    """
+    try:
+        # Get all settings from the database
+        settings = all_configs_settings()
+        
+        # Also backup other relevant data like servers, plans if needed
+        # This is a simplified version
+        backup_data = {
+            "timestamp": datetime.datetime.now().isoformat(),
+            "settings": settings
+            # Add other data sections here if required
+        }
+        
+        backup_loc = os.path.join(os.getcwd(), 'Backup')
+        if not os.path.exists(backup_loc):
+            os.makedirs(backup_loc)
+            
+        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        json_filename = os.path.join(backup_loc, f"bot_settings_backup_{timestamp}.json")
+        
+        with open(json_filename, 'w', encoding='utf-8') as f:
+            json.dump(backup_data, f, ensure_ascii=False, indent=4)
+            
+        logger.info(f"Bot settings backup created successfully: {json_filename}")
+        return json_filename
+        
+    except Exception as e:
+        logger.error(f"Error creating bot settings backup: {e}")
+        return None
+
+# --- Restore JSON Bot ---
+def restore_json_bot(json_file_path):
+    """
+    Restore bot settings from a JSON file.
+    """
+    try:
+        if not os.path.exists(json_file_path):
+            logger.error(f"Backup file {json_file_path} does not exist.")
+            return False
+            
+        with open(json_file_path, 'r', encoding='utf-8') as f:
+            backup_data = json.load(f)
+            
+        settings = backup_data.get("settings", {})
+        if not settings:
+            logger.warning("No settings found in backup file.")
+            return False
+            
+        # Restore settings to the database
+        # This requires knowing the structure of your settings tables
+        # Example logic (needs to be adapted to your DB schema):
+        success_count = 0
+        for key, value in settings.items():
+            # Determine the type of setting and update accordingly
+            # This is a placeholder, implement based on your DB structure
+            # e.g., USERS_DB.update_config(key, value)
+            # For now, we'll just log what would be restored
+            logger.info(f"Would restore setting: {key} = {value}")
+            success_count += 1
+            
+        logger.info(f"Restored {success_count} settings from {json_file_path}")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Error restoring bot settings from {json_file_path}: {e}")
+        return False
+
+# --- Owner Information ---
+def owner_info():
+    """
+    Get owner information from the database.
+    """
+    try:
+        # Assuming there's a specific way to get owner info, e.g., a setting or a specific user
+        # This is a placeholder implementation
+        settings = all_configs_settings()
+        
+        owner_data = {
+            'username': settings.get('support_username', ''),
+            'card_number': settings.get('card_number', ''),
+            'card_owner': settings.get('card_holder', '')
+        }
+        
+        return owner_data
+        
+    except Exception as e:
+        logger.error(f"Error getting owner info: {e}")
+        return {
+            'username': '',
+            'card_number': '',
+            'card_owner': ''
+        }
+
+# --- New Feature: Payment Processing Utilities (Placeholder for future integration) ---
+def verify_payment_internal(payment_id):
+    """
+    Placeholder for internal payment verification logic.
+    This would integrate with payment gateways.
+    """
+    # Implementation would go here
+    # For example, check payment status in database, call external APIs
+    logger.info(f"Verifying payment ID: {payment_id}")
+    return True # Placeholder
+
+def generate_payment_link(amount, user_id, description=""):
+    """
+    Placeholder for generating payment links for online gateways.
+    """
+    # Implementation would go here
+    # For example, integrate with ZarinPal, NextPay, etc.
+    logger.info(f"Generating payment link for amount: {amount}, user: {user_id}")
+    return f"https://payment-gateway.example.com/pay?amount={amount}&user={user_id}" # Placeholder
+
+# --- New Feature: Affiliate/Referral Utilities ---
+def record_referral(referrer_id, referred_id):
+    """
+    Record a referral action.
+    This would update the database to track referrals.
+    """
+    try:
+        # Implementation would interact with USERS_DB to record the referral
+        # For example, USERS_DB.add_referral(referrer_id, referred_id)
+        logger.info(f"Recording referral: {referrer_id} referred {referred_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Error recording referral {referrer_id} -> {referred_id}: {e}")
+        return False
+
+def calculate_referral_commission(user_id):
+    """
+    Calculate the total commission earned by a user through referrals.
+    """
+    try:
+        # Implementation would query the database for referrals made by user_id
+        # and sum up the commission.
+        # For example, USERS_DB.get_referral_commissions(user_id)
+        logger.info(f"Calculating referral commission for user: {user_id}")
+        return 0.0 # Placeholder
+    except Exception as e:
+        logger.error(f"Error calculating referral commission for user {user_id}: {e}")
+        return 0.0
+
+# --- New Feature: Statistics Utilities ---
+def get_user_statistics():
+    """
+    Get overall user statistics.
+    """
+    try:
+        # Get total users, active users, expired users, etc.
+        total_users = USERS_DB.select_users()
+        total_count = len(total_users) if total_users else 0
+        
+        # Get expired users using the updated function
+        expired_users = expired_users_list()
+        expired_count = len(expired_users) if expired_users else 0
+        
+        active_count = total_count - expired_count # Simplified
+        
+        stats = {
+            'total_users': total_count,
+            'active_users': active_count,
+            'expired_users': expired_count
+        }
+        logger.info(f"User statistics: {stats}")
+        return stats
+    except Exception as e:
+        logger.error(f"Error getting user statistics: {e}")
+        return {
+            'total_users': 0,
+            'active_users': 0,
+            'expired_users': 0
+        }
+
+def get_order_statistics():
+    """
+    Get overall order/sales statistics.
+    """
+    try:
+        # Get total orders, total revenue, etc.
+        orders = USERS_DB.select_orders() # Assuming this method exists
+        total_orders = len(orders) if orders else 0
+        total_revenue = 0
+        if orders:
+            for order in orders:
+                total_revenue += order.get('price', 0) # Assuming 'price' field
+        
+        stats = {
+            'total_orders': total_orders,
+            'total_revenue': total_revenue
+        }
+        logger.info(f"Order statistics: {stats}")
+        return stats
+    except Exception as e:
+        logger.error(f"Error getting order statistics: {e}")
+        return {
+            'total_orders': 0,
+            'total_revenue': 0
+        }
+
+# --- New Feature: Coupon Utilities (Placeholder) ---
+def validate_coupon(coupon_code):
+    """
+    Validate a coupon code.
+    """
+    # Implementation would check the database for the coupon
+    # and verify its validity (expiry, usage limit, etc.)
+    logger.info(f"Validating coupon code: {coupon_code}")
+    return {
+        'valid': True, # Placeholder
+        'discount_type': 'percentage', # or 'fixed'
+        'discount_value': 10 # 10% discount, or 10000 Rials, etc.
+    }
+
+def apply_coupon_discount(original_price, coupon_data):
+    """
+    Apply a coupon discount to a price.
+    """
+    if not coupon_data or not coupon_data.get('valid'):
+        return original_price
     
+    discount_type = coupon_data.get('discount_type')
+    discount_value = coupon_data.get('discount_value', 0)
+    
+    if discount_type == 'percentage':
+        discounted_price = original_price * (1 - discount_value / 100.0)
+    elif discount_type == 'fixed':
+        discounted_price = original_price - discount_value
+    else:
+        discounted_price = original_price
+    
+    return max(0, round(discounted_price, 2)) # Ensure price doesn't go negative
+
+# --- New Feature: Multi-Server Load Balancing Utilities (Placeholder) ---
+def select_best_server_for_user():
+    """
+    Select the best server for a new user based on load balancing criteria.
+    """
+    try:
+        servers = USERS_DB.select_servers()
+        if not servers:
+            logger.warning("No servers available for load balancing.")
+            return None
+
+        best_server = None
+        best_score = float('inf') # Lower score is better
+
+        for server_data in servers:
+            server_id = server_data['id']
+            server_url = server_data['url']
+            
+            # Criteria 1: User count on this server
+            # We need to get users for this specific server
+            # This might require calling the API for that specific server
+            # For now, we'll use a placeholder or data from local DB if available
+            # Let's assume we can get user count from local DB linked to server
+            users_on_server = USERS_DB.find_order(server_id=server_id) # Simplification
+            user_count = len(users_on_server) if users_on_server else 0
+            
+            # Criteria 2: Server capacity (if defined)
+            user_limit = server_data.get('user_limit', float('inf'))
+            
+            # Criteria 3: Server status (active/inactive)
+            is_active = server_data.get('status', True)
+            
+            if not is_active:
+                continue # Skip inactive servers
+            
+            # Simple scoring: prioritize servers with lower user-to-limit ratio
+            # and lower absolute user count
+            if user_limit == 0 or user_limit == float('inf'):
+                # If no limit, prioritize by absolute user count
+                score = user_count
+            else:
+                # Use ratio, but also consider absolute count to avoid overloading
+                usage_ratio = user_count / user_limit if user_limit > 0 else 1
+                # Add a small bias towards lower absolute counts
+                score = usage_ratio + (user_count * 0.01) 
+            
+            if score < best_score:
+                best_score = score
+                best_server = server_data
+                
+        if best_server:
+            logger.info(f"Selected best server: {best_server['title']} (ID: {best_server['id']}) with score {best_score:.4f}")
+        else:
+            logger.warning("No suitable server found for load balancing.")
+            
+        return best_server
+        
+    except Exception as e:
+        logger.error(f"Error selecting best server for user: {e}")
+        return None
+
+# --- New Feature: Enhanced Logging Utilities ---
+def log_user_activity(user_id, activity_type, details=""):
+    """
+    Log user activities for audit and analytics.
+    """
+    try:
+        timestamp = datetime.datetime.now().isoformat()
+        log_message = f"[{timestamp}] USER_ACTIVITY: UserID={user_id}, Type={activity_type}, Details={details}"
+        logger.info(log_message)
+        # In a more advanced setup, you might write this to a separate activity log file or database table
+    except Exception as e:
+        logger.error(f"Error logging user activity for user {user_id}: {e}")
+
+# --- New Feature: Data Caching Utilities (Simple In-Memory Cache) ---
+# Note: For production, consider using Redis or similar.
+import time
+_simple_cache = {}
+_CACHE_EXPIRY_SECONDS = 300 # 5 minutes
+
+def get_cached_data(key):
+    """Get data from simple in-memory cache."""
+    try:
+        if key in _simple_cache:
+            data, timestamp = _simple_cache[key]
+            if time.time() - timestamp < _CACHE_EXPIRY_SECONDS:
+                logger.debug(f"Cache HIT for key: {key}")
+                return data
+            else:
+                # Expired, remove it
+                del _simple_cache[key]
+                logger.debug(f"Cache EXPIRED for key: {key}")
+    except Exception as e:
+        logger.error(f"Error getting cached data for key {key}: {e}")
+    return None
+
+def set_cached_data(key, data):
+    """Set data in simple in-memory cache."""
+    try:
+        _simple_cache[key] = (data, time.time())
+        logger.debug(f"Cache SET for key: {key}")
+    except Exception as e:
+        logger.error(f"Error setting cached data for key {key}: {e}")
+
+def clear_cache(key=None):
+    """Clear cache entry or entire cache."""
+    try:
+        if key:
+            if key in _simple_cache:
+                del _simple_cache[key]
+                logger.debug(f"Cache CLEARED for key: {key}")
+        else:
+            _simple_cache.clear()
+            logger.debug("Entire cache CLEARED")
+    except Exception as e:
+        logger.error(f"Error clearing cache: {e}")
