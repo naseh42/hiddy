@@ -1,6 +1,31 @@
-psutil==5.9.4
-pyTelegramBotAPI==4.12.0
-requests==2.30.0
-termcolor==2.3.0
-qrcode==7.4.2
-pytz==2023.3.post1
+# requirements.txt
+# Description: List of Python packages required for the Hiddify Telegram Bot.
+
+# Core dependencies
+psutil==5.9.4                      # System and process utilities
+pyTelegramBotAPI==4.12.0          # Telegram Bot API wrapper
+requests==2.30.0                  # HTTP library for API calls
+termcolor==2.3.0                  # Colored terminal text output
+qrcode==7.4.2                     # QR code generation
+pytz==2023.3.post1                # World timezone definitions
+
+# Database
+sqlite3                           # Built-in SQLite database module (usually part of Python standard library)
+
+# Additional utilities that might be needed
+urllib3>=1.26.0                   # HTTP library (often included with requests)
+certifi>=2022.12.0                # Python package for providing Mozilla's CA Bundle
+
+# Optional dependencies for enhanced features
+# Uncomment the following lines if you plan to use these features:
+# matplotlib>=3.5.0               # For advanced statistics visualization
+# numpy>=1.21.0                   # For numerical computations in statistics
+# pandas>=1.3.0                   # For data manipulation in statistics
+# cryptography>=3.4.0             # For enhanced security features
+# bcrypt>=3.2.0                   # For password hashing (if needed)
+# schedule>=1.1.0                 # For scheduling tasks (alternative to APScheduler if used)
+
+# Development and debugging tools
+# pytest>=6.2.0                   # For testing
+# flake8>=4.0.0                   # For code linting
+# black>=22.0.0                   # For code formatting
