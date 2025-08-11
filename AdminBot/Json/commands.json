@@ -1,10 +1,32 @@
 {
     "EN": {
         "START": "start",
-        "DEBUG": "debug"
+        "DEBUG": "debug",
+        "USERS": "users",
+        "SERVERS": "servers",
+        "PLANS": "plans",
+        "ORDERS": "orders",
+        "PAYMENTS": "payments",
+        "STATS": "stats",
+        "SETTINGS": "settings",
+        "HELP": "help",
+        "ABOUT": "about",
+        "BACKUP": "backup",
+        "RESTORE": "restore"
     },
     "FA": {
         "START": "شروع",
-        "DEBUG": "اشکال زدایی"
+        "DEBUG": "اشکال‌زدایی",
+        "USERS": "کاربران",
+        "SERVERS": "سرورها",
+        "PLANS": "پلن‌ها",
+        "ORDERS": "سفارشات",
+        "PAYMENTS": "پرداخت‌ها",
+        "STATS": "آمار",
+        "SETTINGS": "تنظیمات",
+        "HELP": "راهنما",
+        "ABOUT": "درباره",
+        "BACKUP": "پشتیبان‌گیری",
+        "RESTORE": "بازیابی"
     }
 }
