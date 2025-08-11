@@ -1,8 +1,28 @@
 {
     "EN": {
-        "START": "start"
+        "START": "start",
+        "DEBUG": "debug",
+        "PROFILE": "profile",
+        "WALLET": "wallet",
+        "SUBSCRIPTIONS": "subscriptions",
+        "ORDERS": "orders",
+        "PAYMENTS": "payments",
+        "SUPPORT": "support",
+        "SETTINGS": "settings",
+        "HELP": "help",
+        "ABOUT": "about"
     },
     "FA": {
-        "START": "شروع"
+        "START": "شروع",
+        "DEBUG": "اشکال‌زدایی",
+        "PROFILE": "پروفایل",
+        "WALLET": "کیف‌پول",
+        "SUBSCRIPTIONS": "اشتراک‌ها",
+        "ORDERS": "سفارشات",
+        "PAYMENTS": "پرداخت‌ها",
+        "SUPPORT": "پشتیبانی",
+        "SETTINGS": "تنظیمات",
+        "HELP": "راهنما",
+        "ABOUT": "درباره"
     }
 }
